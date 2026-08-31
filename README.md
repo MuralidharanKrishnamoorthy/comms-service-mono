@@ -2,7 +2,7 @@
 
 Internal, standalone notification service. Every company app (Talntx, ERP, Krediq, and any new project) sends Email, SMS, and Push through this one service instead of building its own provider integrations. Each app gets its own API key, its own templates, and its own delivery log.
 
-Full design decisions and flow: see [`COMMUNICATION_SERVICE_FLOW.md`](../COMMUNICATION_SERVICE_FLOW.md).
+
 
 ## Stack
 
