@@ -180,8 +180,7 @@ function CreateProjectModal({
         </div>
 
         <div class="note">
-          Store this in the consuming app's environment now. If it's lost, the only
-          fix today is to create a new project — there is no regenerate endpoint.
+          Store this in the consuming app's environment now.
         </div>
 
         <div class="form-actions">

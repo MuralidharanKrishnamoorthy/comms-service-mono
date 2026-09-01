@@ -16,31 +16,6 @@ export function extractVariables(...parts: (string | undefined)[]): string[] {
   return seen
 }
 
-// Replace {{var}} tokens with sample data for the live preview.
-export function renderSample(content: string, variables: string[]): string {
-  let out = content
-  for (const v of variables) {
-    const sample = sampleFor(v)
-    out = out.replace(new RegExp(`\\{\\{\\s*${escapeRegExp(v)}\\s*\\}\\}`, 'g'), sample)
-  }
-  return out
-}
-
-function sampleFor(name: string): string {
-  const n = name.toLowerCase()
-  if (n.includes('name')) return 'Arjun'
-  if (n.includes('code') || n.includes('otp')) return '482913'
-  if (n.includes('email')) return 'arjun@example.com'
-  if (n.includes('url') || n.includes('link')) return 'https://example.com/x'
-  if (n.includes('amount') || n.includes('price')) return '₹1,299'
-  if (n.includes('date')) return '1 Sep 2026'
-  return `{${name}}`
-}
-
-function escapeRegExp(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-}
-
 export function formatDate(iso: string | undefined): string {
   if (!iso) return '—'
   const d = new Date(iso)

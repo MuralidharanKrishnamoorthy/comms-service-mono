@@ -7,7 +7,7 @@ import { ApiBanner, ChannelChips, PageHeader } from '../components/ui'
 import { formatDate } from '../util'
 
 export function Templates(_props: { path?: string }) {
-  const { selectedProject } = useStore()
+  const { projects, selectedProjectId, selectedProject, setSelectedProjectId } = useStore()
   const [templates, setTemplates] = useState<Template[]>([])
   const [categories, setCategories] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
@@ -73,6 +73,27 @@ export function Templates(_props: { path?: string }) {
       {unreachable && <ApiBanner base={API_BASE} />}
 
       <div class="toolbar">
+        <div class="field toolbar-field">
+          <label>Project</label>
+          {projects.length === 0 ? (
+            <select disabled>
+              <option>No projects yet</option>
+            </select>
+          ) : (
+            <select
+              class="project-select"
+              value={selectedProjectId ?? ''}
+              onChange={(e) => setSelectedProjectId((e.target as HTMLSelectElement).value)}
+            >
+              {projects.map((p) => (
+                <option key={p._id} value={p._id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+
         <div class="field toolbar-field">
           <label>Category</label>
           <select

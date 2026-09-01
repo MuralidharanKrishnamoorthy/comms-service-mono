@@ -29,24 +29,6 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.07);
 }
 
-.brand-mark {
-  width: 26px;
-  height: 26px;
-  border-radius: 7px;
-  background: var(--accent);
-  display: grid;
-  place-items: center;
-  color: #fff;
-  font-weight: 700;
-  font-size: 14px;
-}
-
-.brand-sub {
-  font-size: 11px;
-  color: var(--ink-faint);
-  font-weight: 400;
-}
-
 .nav {
   padding: 12px 10px;
   display: flex;
@@ -87,19 +69,6 @@
   opacity: 1;
 }
 
-.sidebar-foot {
-  margin-top: auto;
-  padding: 14px 20px;
-  font-size: 11px;
-  color: var(--ink-faint);
-  border-top: 1px solid rgba(255, 255, 255, 0.07);
-}
-
-.sidebar-foot .mono {
-  color: var(--sidebar-ink);
-  word-break: break-all;
-}
-
 /* ---------- Main column ---------- */
 .main {
   flex: 1;
@@ -108,59 +77,16 @@
   flex-direction: column;
 }
 
-.topbar {
-  height: var(--topbar-h);
-  flex-shrink: 0;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 26px;
-  position: sticky;
-  top: 0;
-  z-index: 20;
-}
-
-.topbar-left {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.switcher-label {
-  font-size: 12px;
-  color: var(--ink-faint);
-  font-weight: 500;
-}
-
-.switcher select {
+.project-select {
   min-width: 220px;
-  padding: 7px 11px;
-}
-
-.topbar-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  color: var(--ink-faint);
-}
-
-.api-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--success);
-}
-.api-dot.down {
-  background: var(--danger);
+  border-color: var(--accent) !important;
+  font-weight: 600;
 }
 
 .content {
   padding: 26px;
-  max-width: 1160px;
   width: 100%;
+  box-sizing: border-box;
 }
 
 /* ---------- Page header ---------- */
@@ -371,19 +297,6 @@
   margin: 24px 0 12px;
   display: flex;
   align-items: center;
-}
-
-.placeholder-tag {
-  display: inline-block;
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--warning);
-  background: #f6edda;
-  padding: 2px 8px;
-  border-radius: 4px;
-  margin-left: 8px;
 }
 
 /* ---------- Channel tabs ---------- */

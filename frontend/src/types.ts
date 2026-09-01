@@ -6,6 +6,9 @@ export type MessageStatus = 'pending' | 'sent' | 'delivered' | 'failed'
 export interface Project {
   _id: string
   name: string
+  // Only present when fetched via getProject() (the detail endpoint) — the
+  // list endpoint never includes it.
+  api_key?: string
   api_key_prefix: string
   channels_allowed: Channel[]
   status: string

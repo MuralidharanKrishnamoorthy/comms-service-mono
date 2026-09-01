@@ -19,7 +19,6 @@
   --r-md: 10px;
 
   --sidebar-w: 232px;
-  --topbar-h: 60px;
 
   font-family: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
   color: var(--ink);
@@ -148,6 +147,30 @@ textarea {
 textarea {
   resize: vertical;
   line-height: 1.5;
+}
+
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  cursor: pointer;
+  padding: 10px 38px 10px 13px;
+  border-radius: var(--r-md);
+  box-shadow: 0 1px 2px rgba(20, 20, 15, 0.04);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%235b6067' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 13px center;
+  background-size: 13px;
+}
+
+select:hover {
+  border-color: var(--ink-faint);
+  box-shadow: 0 1px 4px rgba(20, 20, 15, 0.08);
+}
+
+select:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 input:focus,

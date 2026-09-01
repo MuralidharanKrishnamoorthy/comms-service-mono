@@ -86,6 +86,9 @@ async function request<T>(
 // ---------- Projects ----------
 export const listProjects = () => request<Project[]>('/projects')
 
+export const getProject = (projectId: string) =>
+  request<Project>(`/projects/${projectId}`)
+
 export const createProject = (name: string) =>
   request<CreatedProject>('/projects', {
     method: 'POST',

@@ -1,18 +1,61 @@
+import { useEffect, useState } from 'preact/hooks'
 import { route } from 'preact-router'
 import { useStore } from '../store'
+import { ApiError, API_BASE, getProject } from '../api'
+import type { Project } from '../types'
 import { ApiBanner, ChannelChips, StatusBadge } from '../components/ui'
 import { formatDate } from '../util'
-import { API_BASE } from '../api'
 
-// There is no GET /projects/:id — this view is derived entirely from the row
-// already fetched into the store by GET /projects.
 export function ProjectDetail({ id }: { path?: string; id?: string }) {
-  const { projects, projectsLoading, projectsUnreachable, setSelectedProjectId } = useStore()
-  const project = projects.find((p) => p._id === id)
+  const { setSelectedProjectId } = useStore()
+  const [project, setProject] = useState<Project | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [unreachable, setUnreachable] = useState(false)
+  const [notFound, setNotFound] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  useEffect(() => {
+    if (!id) return
+    let cancelled = false
+    setLoading(true)
+    setUnreachable(false)
+    setNotFound(false)
+
+    getProject(id)
+      .then((p) => {
+        if (cancelled) return
+        setProject(p)
+      })
+      .catch((err) => {
+        if (cancelled) return
+        if (err instanceof ApiError) {
+          if (err.isNetwork) setUnreachable(true)
+          else if (err.status === 404) setNotFound(true)
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [id])
 
   const goTo = (path: string) => {
     if (id) setSelectedProjectId(id)
     route(path)
+  }
+
+  const copyKey = async () => {
+    if (!project?.api_key) return
+    try {
+      await navigator.clipboard.writeText(project.api_key)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      setCopied(false)
+    }
   }
 
   return (
@@ -28,14 +71,14 @@ export function ProjectDetail({ id }: { path?: string; id?: string }) {
         ← Back to projects
       </a>
 
-      {projectsUnreachable && <ApiBanner base={API_BASE} />}
+      {unreachable && <ApiBanner base={API_BASE} />}
 
-      {projectsLoading && !project ? (
+      {loading ? (
         <div class="card">Loading…</div>
-      ) : !project ? (
+      ) : notFound || !project ? (
         <div class="card">
           <p style={{ margin: 0 }}>
-            Project not found. It may have been created in another session —{' '}
+            Project not found —{' '}
             <a
               class="mono"
               style={{ color: 'var(--accent-ink)' }}
@@ -64,9 +107,18 @@ export function ProjectDetail({ id }: { path?: string; id?: string }) {
               <dt>Name</dt>
               <dd>{project.name}</dd>
 
-              <dt>Key prefix</dt>
+              <dt>API key</dt>
               <dd>
-                <span class="mono">{project.api_key_prefix}…</span>
+                {project.api_key ? (
+                  <div class="key-reveal">
+                    <span class="mono">{project.api_key}</span>
+                    <button class="btn btn-sm" onClick={copyKey}>
+                      {copied ? '✓ Copied' : 'Copy'}
+                    </button>
+                  </div>
+                ) : (
+                  <span class="mono">{project.api_key_prefix}…</span>
+                )}
               </dd>
 
               <dt>Channels</dt>
@@ -94,11 +146,6 @@ export function ProjectDetail({ id }: { path?: string; id?: string }) {
                 View logs
               </button>
             </div>
-          </div>
-
-          <div class="note" style={{ marginTop: 16 }}>
-            Lost the API key? There's no regenerate endpoint yet — the only current
-            fix is to create a new project.
           </div>
         </>
       )}

@@ -1,5 +1,5 @@
 import type { Channel } from '../types'
-import { extractVariables, renderSample } from '../util'
+import { extractVariables } from '../util'
 
 export interface ChannelValues {
   subject?: string
@@ -80,13 +80,13 @@ export function ChannelFields({
         <label style={{ marginTop: 16 }}>Live preview</label>
         <div class="preview-box">
           <div class="preview-subject">
-            {values.subject ? renderSample(values.subject, vars) : '(no subject)'}
+            {values.subject || '(no subject)'}
           </div>
           <div
             class="preview-html"
             // Preview only — content is authored by the internal team.
             dangerouslySetInnerHTML={{
-              __html: renderSample(values.html_body ?? '', vars) || '<em>(no body)</em>',
+              __html: values.html_body || '<em>(no body)</em>',
             }}
           />
         </div>
@@ -119,7 +119,7 @@ export function ChannelFields({
 
         <label style={{ marginTop: 16 }}>Live preview</label>
         <div class="preview-box">
-          <div class="preview-plain">{renderSample(body, vars) || '(no body)'}</div>
+          <div class="preview-plain">{body || '(no body)'}</div>
         </div>
       </div>
     )
@@ -154,8 +154,8 @@ export function ChannelFields({
 
       <label style={{ marginTop: 16 }}>Live preview</label>
       <div class="preview-box">
-        {values.title && <div class="preview-subject">{renderSample(values.title, vars)}</div>}
-        <div class="preview-plain">{renderSample(body, vars) || '(no body)'}</div>
+        {values.title && <div class="preview-subject">{values.title}</div>}
+        <div class="preview-plain">{body || '(no body)'}</div>
       </div>
     </div>
   )
