@@ -22,7 +22,7 @@ app.route('/projects', projectsRoute)
 app.route('/v1/notifications/send', sendRoute)
 app.route('/v1/webhooks', webhooksRoute)
 app.route('/projects/:projectId/templates', templatesRoute)
-app.route('/projects/:projectId/categories', categoriesRoute)
+app.route('/categories', categoriesRoute)
 app.route('/projects/:projectId/logs', messageLogsRoute)
 
 async function main() {

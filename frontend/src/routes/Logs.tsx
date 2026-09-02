@@ -171,9 +171,6 @@ export function Logs(_props: { path?: string }) {
             <dt>Template key</dt>
             <dd class="mono">{selected.template_key}</dd>
 
-            <dt>Category</dt>
-            <dd>{selected.category}</dd>
-
             <dt>Channel</dt>
             <dd>
               <span class="chip">{selected.channel}</span>

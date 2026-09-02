@@ -21,6 +21,11 @@ async function ensureIndexes(database: Db): Promise<void> {
   await database.collection('message_logs').createIndex({ project_id: 1, created_at: -1 })
   await database.collection('message_logs').createIndex({ status: 1, next_retry_at: 1 })
   await database.collection('message_logs').createIndex({ provider_message_id: 1 })
+  await database.collection('categories').createIndex({ name: 1 }, { unique: true })
+  await database.collection('template_categories').createIndex(
+    { category_id: 1, project_id: 1, template_key: 1 },
+    { unique: true }
+  )
 }
 
 export async function connectDb(): Promise<Db> {

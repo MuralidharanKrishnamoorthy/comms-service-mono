@@ -5,13 +5,22 @@
  * e.g. `{{ variable }}`). Rendering substitutes each token with the matching
  * value from the caller-supplied data object.
  *
+ * The rich-text email editor can bold/italic/color just the inner word of a
+ * token (e.g. select only "user_name" inside "{{user_name}}"), which splits
+ * the braces from the name into separate HTML text runs — e.g.
+ * "{{<strong>user_name</strong>}}". The pattern below tolerates any number
+ * of simple inline tags immediately around the identifier so that still
+ * counts as one token; the whole match (braces, tags and all) is replaced by
+ * the plain substituted value. It does not tolerate a tag landing inside the
+ * identifier itself (e.g. only "user_" bolded) — that's a rarer, harder case.
+ *
  * HTML content (email) is escaped by default — variable values are user/app
  * data, never trusted markup, so they must never be able to inject tags or
  * break out of the surrounding HTML. Plain text content (SMS/push) is not
  * escaped, since there is no markup to protect.
  */
 
-const TOKEN_PATTERN = /\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g
+const TOKEN_PATTERN = /\{\{\s*(?:<\/?[a-zA-Z][^>]*>\s*)*([a-zA-Z0-9_]+)\s*(?:<\/?[a-zA-Z][^>]*>\s*)*\}\}/g
 
 export class MissingVariablesError extends Error {
   readonly missing: string[]

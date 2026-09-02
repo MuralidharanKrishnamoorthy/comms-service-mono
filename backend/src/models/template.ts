@@ -10,7 +10,6 @@ const channelContentSchema = z.object({
 })
 
 export const createTemplateSchema = z.object({
-  category: z.string().max(60).optional().default('General'),
   template_key: z
     .string()
     .min(1)
@@ -61,7 +60,6 @@ export interface ChannelContent {
 export interface Template {
   _id?: ObjectId
   project_id: ObjectId
-  category: string
   template_key: string
   name: string
   channels: {

@@ -9,7 +9,6 @@ export type { Channel }
 export interface MessageLog {
   _id?: ObjectId
   project_id: ObjectId
-  category: string
   template_id: ObjectId
   template_key: string
   channel: Channel

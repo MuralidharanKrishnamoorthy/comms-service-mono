@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'preact/hooks'
 import { route } from 'preact-router'
 import { useStore } from '../store'
-import { ApiError, API_BASE, listCategories, listTemplates } from '../api'
+import { ApiError, API_BASE, listTemplates } from '../api'
 import type { Template } from '../types'
 import { ApiBanner, ChannelChips, PageHeader } from '../components/ui'
 import { formatDate } from '../util'
@@ -9,10 +9,8 @@ import { formatDate } from '../util'
 export function Templates(_props: { path?: string }) {
   const { projects, selectedProjectId, selectedProject, setSelectedProjectId } = useStore()
   const [templates, setTemplates] = useState<Template[]>([])
-  const [categories, setCategories] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [unreachable, setUnreachable] = useState(false)
-  const [categoryFilter, setCategoryFilter] = useState('')
 
   useEffect(() => {
     if (!selectedProject) {
@@ -23,13 +21,11 @@ export function Templates(_props: { path?: string }) {
     let cancelled = false
     setLoading(true)
     setUnreachable(false)
-    setCategoryFilter('')
 
-    Promise.all([listTemplates(pid), listCategories(pid).catch(() => [])])
-      .then(([tpls, cats]) => {
+    listTemplates(pid)
+      .then((tpls) => {
         if (cancelled) return
         setTemplates(tpls)
-        setCategories(cats)
       })
       .catch((err) => {
         if (cancelled) return
@@ -45,9 +41,7 @@ export function Templates(_props: { path?: string }) {
     }
   }, [selectedProject])
 
-  const visible = categoryFilter
-    ? templates.filter((t) => t.category === categoryFilter)
-    : templates
+  const visible = templates
 
   if (!selectedProject) {
     return (
@@ -93,21 +87,6 @@ export function Templates(_props: { path?: string }) {
             </select>
           )}
         </div>
-
-        <div class="field toolbar-field">
-          <label>Category</label>
-          <select
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter((e.target as HTMLSelectElement).value)}
-          >
-            <option value="">All categories</option>
-            {categories.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        </div>
       </div>
 
       <div class="table-wrap">
@@ -115,7 +94,6 @@ export function Templates(_props: { path?: string }) {
           <thead>
             <tr>
               <th>Template</th>
-              <th>Category</th>
               <th>Channels</th>
               <th>Last updated</th>
             </tr>
@@ -123,19 +101,15 @@ export function Templates(_props: { path?: string }) {
           <tbody>
             {loading ? (
               <tr class="state-row">
-                <td colSpan={4}>Loading…</td>
+                <td colSpan={3}>Loading…</td>
               </tr>
             ) : unreachable ? (
               <tr class="state-row">
-                <td colSpan={4}>Couldn't load templates.</td>
+                <td colSpan={3}>Couldn't load templates.</td>
               </tr>
             ) : visible.length === 0 ? (
               <tr class="state-row">
-                <td colSpan={4}>
-                  {templates.length === 0
-                    ? 'No templates yet — click New template to create one.'
-                    : 'No templates in this category.'}
-                </td>
+                <td colSpan={3}>No templates yet — click New template to create one.</td>
               </tr>
             ) : (
               visible.map((t) => (
@@ -148,7 +122,6 @@ export function Templates(_props: { path?: string }) {
                     <div class="cell-primary">{t.name}</div>
                     <div class="cell-secondary mono">{t.template_key}</div>
                   </td>
-                  <td class="cell-muted">{t.category}</td>
                   <td>
                     <ChannelChips channels={Object.keys(t.channels ?? {})} />
                   </td>

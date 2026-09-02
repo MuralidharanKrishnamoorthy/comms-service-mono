@@ -1,9 +1,11 @@
 import type {
   ApiErrorDetails,
+  Category,
   CreatedProject,
   MessageLog,
   Project,
   Template,
+  TemplateWithAttached,
 } from './types'
 
 export const API_BASE: string =
@@ -119,8 +121,29 @@ export const updateChannel = (
     body: JSON.stringify(body),
   })
 
-export const listCategories = (projectId: string) =>
-  request<string[]>(`/projects/${projectId}/categories`)
+// ---------- Categories (global — not scoped to a project) ----------
+export const listCategories = () => request<Category[]>('/categories')
+
+export const createCategory = (name: string) =>
+  request<Category>('/categories', {
+    method: 'POST',
+    body: JSON.stringify({ name }),
+  })
+
+export const getCategoryTemplates = (categoryId: string, projectId: string) =>
+  request<{ category: Category; templates: TemplateWithAttached[] }>(
+    `/categories/${categoryId}/projects/${projectId}/templates`
+  )
+
+export const attachTemplateToCategory = (categoryId: string, projectId: string, templateKey: string) =>
+  request<{ attached: true }>(`/categories/${categoryId}/projects/${projectId}/templates/${templateKey}`, {
+    method: 'POST',
+  })
+
+export const detachTemplateFromCategory = (categoryId: string, projectId: string, templateKey: string) =>
+  request<{ attached: false }>(`/categories/${categoryId}/projects/${projectId}/templates/${templateKey}`, {
+    method: 'DELETE',
+  })
 
 // ---------- Logs ----------
 export const listLogs = (

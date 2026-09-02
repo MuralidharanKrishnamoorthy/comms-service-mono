@@ -36,7 +36,6 @@ export interface ChannelContent {
 export interface Template {
   _id: string
   project_id: string
-  category: string
   template_key: string
   name: string
   channels: Partial<Record<Channel, ChannelContent>>
@@ -44,10 +43,22 @@ export interface Template {
   updated_at: string
 }
 
+// A template flagged with whether it's attached to a specific category —
+// only present on the per-category template listing.
+export interface TemplateWithAttached extends Template {
+  attached: boolean
+}
+
+export interface Category {
+  _id: string
+  name: string
+  template_count: number
+  created_at: string
+}
+
 export interface MessageLog {
   _id: string
   project_id: string
-  category: string
   template_id: string
   template_key: string
   channel: Channel

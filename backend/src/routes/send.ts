@@ -61,7 +61,6 @@ sendRoute.post('/', async (c) => {
 
   const log = await createMessageLog({
     project_id: project._id!,
-    category: template.category,
     template_id: template._id!,
     template_key: template.template_key,
     channel,

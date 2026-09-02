@@ -146,10 +146,6 @@ export function TemplateEdit({ templateKey }: { path?: string; templateKey?: str
 
           <div class="card" style={{ marginBottom: 18 }}>
             <dl class="dl">
-              <dt>Category</dt>
-              <dd>
-                <div class="readonly-value">{template.category}</div>
-              </dd>
               <dt>Template key</dt>
               <dd>
                 <div class="readonly-value mono">{template.template_key}</div>
@@ -160,8 +156,8 @@ export function TemplateEdit({ templateKey }: { path?: string; templateKey?: str
               </dd>
             </dl>
             <p class="subtle" style={{ margin: '12px 0 0' }}>
-              Category, key and name can't be changed — no endpoint renames or
-              recategorizes a template. Only channel content is editable.
+              Key and name can't be changed — no endpoint renames a template.
+              Only channel content is editable.
             </p>
           </div>
 
@@ -188,20 +184,7 @@ export function TemplateEdit({ templateKey }: { path?: string; templateKey?: str
 
             {activeTab && template.channels[activeTab] && (
               <>
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 10,
-                    marginBottom: 14,
-                  }}
-                >
-                  <span class="version-badge">
-                    v{template.channels[activeTab]!.version}
-                  </span>
-                  <span class={`badge ${template.channels[activeTab]!.live ? 'badge-success' : 'badge-neutral'}`}>
-                    {template.channels[activeTab]!.live ? 'live' : 'not live'}
-                  </span>
+                <div style={{ marginBottom: 14 }}>
                   <span class="cell-faint">Updated {formatDate(template.updated_at)}</span>
                 </div>
 

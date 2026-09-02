@@ -42,7 +42,6 @@ templatesRoute.post('/', async (c) => {
 
   const template: Template = {
     project_id: new ObjectId(projectId),
-    category: parsed.data.category,
     template_key: parsed.data.template_key,
     name: parsed.data.name,
     channels: {

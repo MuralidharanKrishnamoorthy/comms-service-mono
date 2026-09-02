@@ -497,6 +497,138 @@ tr.clickable:hover td {
   margin-top: 2px;
 }
 
+/* ---------- Category cards ---------- */
+.cat-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.cat-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px 20px;
+  cursor: pointer;
+  overflow: hidden;
+  transition: transform 0.14s ease, box-shadow 0.14s ease, border-color 0.14s ease;
+}
+
+.cat-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: var(--cat-accent);
+}
+
+.cat-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--border-strong);
+  box-shadow: 0 8px 20px rgba(20, 20, 15, 0.09);
+}
+
+.cat-card:hover .cat-card-arrow-btn {
+  background: var(--cat-accent);
+  color: #fff;
+  transform: translate(1px, -1px);
+  box-shadow: 0 4px 10px color-mix(in srgb, var(--cat-accent) 45%, transparent);
+}
+
+.cat-card-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 11px;
+  background: var(--cat-accent-soft);
+  color: var(--cat-accent);
+}
+
+.cat-card-icon svg {
+  width: 21px;
+  height: 21px;
+}
+
+.cat-card-body {
+  min-width: 0;
+  flex: 1;
+}
+
+.cat-card-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cat-card-count {
+  margin-top: 3px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink-faint);
+}
+
+.cat-card-arrow-btn {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--cat-accent-soft);
+  color: var(--cat-accent);
+  transition: transform 0.14s ease, background 0.14s ease, color 0.14s ease, box-shadow 0.14s ease;
+}
+
+.cat-card-arrow-btn svg {
+  width: 15px;
+  height: 15px;
+}
+
+.cat-accent-amber      { --cat-accent: #c4841f; --cat-accent-soft: #faedd6; }
+.cat-accent-terracotta { --cat-accent: #bc5b39; --cat-accent-soft: #f7e4da; }
+.cat-accent-gold       { --cat-accent: #a8821a; --cat-accent-soft: #f5edd1; }
+.cat-accent-sienna     { --cat-accent: #9c5b2e; --cat-accent-soft: #f2e3d1; }
+.cat-accent-copper     { --cat-accent: #b06a2e; --cat-accent-soft: #f6e6d3; }
+.cat-accent-umber      { --cat-accent: #8a6238; --cat-accent-soft: #efe4d5; }
+
+.attach-toggle {
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--ink-muted);
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.attach-toggle:hover {
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+.attach-toggle.attached {
+  background: var(--accent-soft);
+  border-color: #ecd6a8;
+  color: var(--accent-ink);
+}
+
+.attach-toggle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* ---------- Cards / panels ---------- */
 .card {
   background: var(--surface);

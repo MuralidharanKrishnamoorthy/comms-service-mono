@@ -5,6 +5,7 @@ import { Projects } from './routes/Projects'
 import { ProjectDetail } from './routes/ProjectDetail'
 import { Templates } from './routes/Templates'
 import { Categories } from './routes/Categories'
+import { CategoryDetail } from './routes/CategoryDetail'
 import { TemplateNew } from './routes/TemplateNew'
 import { TemplateEdit } from './routes/TemplateEdit'
 import { Logs } from './routes/Logs'
@@ -72,6 +73,7 @@ export function App() {
             <ProjectDetail path="/projects/:id" />
             <Templates path="/templates" />
             <Categories path="/categories" />
+            <CategoryDetail path="/categories/:categoryId" />
             <TemplateNew path="/templates/new" />
             <TemplateEdit path="/templates/:templateKey" />
             <Logs path="/logs" />
