@@ -7,10 +7,12 @@ import {
   type Template,
   type ChannelContent,
 } from '../models/template.js'
+import type { AuthEnv } from '../middleware/dashboardAuth.js'
+import { hasProjectAccess } from '../lib/access.js'
 
-// Mounted at /projects/:projectId/templates — dashboard-only, no API key required
-// (dashboard access is network-restricted, not per-request authenticated).
-export const templatesRoute = new Hono()
+// Mounted at /projects/:projectId/templates — behind dashboardAuth, and each
+// handler additionally checks the caller may access this specific project.
+export const templatesRoute = new Hono<AuthEnv>()
 
 function withVersionAndLive(content: Omit<ChannelContent, 'version' | 'live'>): ChannelContent {
   return { ...content, version: 1, live: true }
@@ -21,6 +23,9 @@ templatesRoute.post('/', async (c) => {
   const projectId = c.req.param('projectId')
   if (!projectId || !ObjectId.isValid(projectId)) {
     return c.json({ error: 'Invalid projectId' }, 400)
+  }
+  if (!(await hasProjectAccess(c.get('user'), projectId))) {
+    return c.json({ error: 'You do not have access to this project' }, 403)
   }
 
   const body = await c.req.json().catch(() => null)
@@ -74,6 +79,9 @@ templatesRoute.get('/', async (c) => {
   const projectId = c.req.param('projectId')
   if (!projectId || !ObjectId.isValid(projectId)) {
     return c.json({ error: 'Invalid projectId' }, 400)
+  }
+  if (!(await hasProjectAccess(c.get('user'), projectId))) {
+    return c.json({ error: 'You do not have access to this project' }, 403)
   }
 
   const db = getDb()
