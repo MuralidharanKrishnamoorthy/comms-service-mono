@@ -3,11 +3,15 @@ import { ObjectId, MongoServerError } from 'mongodb'
 import { getDb } from '../db.js'
 import { createCategorySchema, type Category, type TemplateCategoryLink } from '../models/category.js'
 import type { Template } from '../models/template.js'
+import type { AuthEnv } from '../middleware/dashboardAuth.js'
+import { hasProjectAccess } from '../lib/access.js'
 
 // Mounted at /categories — global, not scoped to a project. A template from
 // any project can be attached to any category; the join collection carries
 // the project_id since template_key is only unique within a project.
-export const categoriesRoute = new Hono()
+// Category metadata is visible to any authenticated user, but the endpoints
+// that read/modify a specific project's templates enforce project access.
+export const categoriesRoute = new Hono<AuthEnv>()
 
 // Create a category
 categoriesRoute.post('/', async (c) => {
@@ -56,6 +60,8 @@ categoriesRoute.get('/:categoryId/projects/:projectId/templates', async (c) => {
   const projectId = c.req.param('projectId')
   if (!ObjectId.isValid(categoryId)) return c.json({ error: 'Invalid categoryId' }, 400)
   if (!ObjectId.isValid(projectId)) return c.json({ error: 'Invalid projectId' }, 400)
+  if (!(await hasProjectAccess(c.get('user'), projectId)))
+    return c.json({ error: 'You do not have access to this project' }, 403)
 
   const db = getDb()
   const category = await db.collection<Category>('categories').findOne({ _id: new ObjectId(categoryId) })
@@ -83,6 +89,8 @@ categoriesRoute.post('/:categoryId/projects/:projectId/templates/:templateKey', 
   const templateKey = c.req.param('templateKey')
   if (!ObjectId.isValid(categoryId)) return c.json({ error: 'Invalid categoryId' }, 400)
   if (!ObjectId.isValid(projectId)) return c.json({ error: 'Invalid projectId' }, 400)
+  if (!(await hasProjectAccess(c.get('user'), projectId)))
+    return c.json({ error: 'You do not have access to this project' }, 403)
 
   const db = getDb()
   const [category, template] = await Promise.all([
@@ -116,6 +124,8 @@ categoriesRoute.delete('/:categoryId/projects/:projectId/templates/:templateKey'
   const templateKey = c.req.param('templateKey')
   if (!ObjectId.isValid(categoryId)) return c.json({ error: 'Invalid categoryId' }, 400)
   if (!ObjectId.isValid(projectId)) return c.json({ error: 'Invalid projectId' }, 400)
+  if (!(await hasProjectAccess(c.get('user'), projectId)))
+    return c.json({ error: 'You do not have access to this project' }, 403)
 
   const db = getDb()
   await db.collection<TemplateCategoryLink>('template_categories').deleteOne({
