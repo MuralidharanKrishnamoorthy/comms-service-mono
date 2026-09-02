@@ -76,3 +76,28 @@ export interface ApiErrorDetails {
   formErrors?: string[]
   fieldErrors?: Record<string, string[]>
 }
+
+// ---------- Auth & access ----------
+// admin is unrestricted; developer / ba / tester are scoped identically to
+// their project memberships and differ only in label/badge colour.
+export type Role = 'admin' | 'developer' | 'ba' | 'tester'
+
+// The logged-in user, from GET /auth/me. Never carries password material.
+export interface AuthUser {
+  id: string
+  email: string
+  name: string
+  role: Role
+}
+
+// A user as managed on the admin "Users & Access" screen (GET /users).
+export interface ManagedUser {
+  _id: string
+  name: string
+  email: string
+  role: Role
+  status: 'active' | 'disabled'
+  project_ids: string[]
+  created_at: string
+  updated_at?: string
+}

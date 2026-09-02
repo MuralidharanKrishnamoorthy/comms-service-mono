@@ -1,6 +1,7 @@
 import { useState } from 'preact/hooks'
 import { route } from 'preact-router'
 import { useStore } from '../store'
+import { useAuth } from '../auth'
 import { ApiError, createProject } from '../api'
 import type { CreatedProject } from '../types'
 import {
@@ -16,6 +17,8 @@ import { API_BASE } from '../api'
 export function Projects(_props: { path?: string }) {
   const { projects, projectsLoading, projectsUnreachable, refreshProjects, setSelectedProjectId } =
     useStore()
+  const { user } = useAuth()
+  const isAdmin = user?.role === 'admin'
   const [modalOpen, setModalOpen] = useState(false)
 
   return (
@@ -24,9 +27,11 @@ export function Projects(_props: { path?: string }) {
         title="Projects"
         subtitle="Each project gets its own API key and message templates."
         actions={
-          <button class="btn btn-primary" onClick={() => setModalOpen(true)}>
-            + Generate Key
-          </button>
+          isAdmin ? (
+            <button class="btn btn-primary" onClick={() => setModalOpen(true)}>
+              + Generate Key
+            </button>
+          ) : undefined
         }
       />
 
@@ -54,7 +59,11 @@ export function Projects(_props: { path?: string }) {
               </tr>
             ) : projects.length === 0 ? (
               <tr class="state-row">
-                <td colSpan={5}>No projects yet — click Generate Key to create one.</td>
+                <td colSpan={5}>
+                  {isAdmin
+                    ? 'No projects yet — click Generate Key to create one.'
+                    : "You don't have access to any projects yet — ask an admin to add you."}
+                </td>
               </tr>
             ) : (
               projects.map((p) => (
