@@ -73,6 +73,13 @@ function Sidebar() {
   )
 }
 
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/)
+  const first = parts[0]?.[0] ?? ''
+  const last = parts.length > 1 ? parts[parts.length - 1][0] : ''
+  return (first + last).toUpperCase()
+}
+
 function Topbar() {
   const { user, logout } = useAuth()
   if (!user) return null
@@ -80,11 +87,16 @@ function Topbar() {
     <header class="topbar">
       <div />
       <div class="topbar-user">
+        <div class="topbar-avatar">{initials(user.name)}</div>
         <div class="topbar-user-meta">
           <span class="topbar-user-name">{user.name}</span>
           <RoleBadge role={user.role} />
         </div>
-        <button class="btn btn-sm" onClick={() => void logout()}>
+        <button class="topbar-logout" onClick={() => void logout()}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+            <path d="M16 17l5-5-5-5M21 12H9" />
+          </svg>
           Log out
         </button>
       </div>
