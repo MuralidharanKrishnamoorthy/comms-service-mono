@@ -3,13 +3,19 @@ import { ObjectId } from 'mongodb'
 import { getDb } from '../db.js'
 import { generateApiKey } from '../lib/apiKey.js'
 import { createProjectSchema, type Project } from '../models/project.js'
+import type { AuthEnv } from '../middleware/dashboardAuth.js'
+import { allowedProjectIds, hasProjectAccess } from '../lib/access.js'
 
-export const projectsRoute = new Hono()
+export const projectsRoute = new Hono<AuthEnv>()
 
-// Create a project. The plaintext key is stored (product decision — retrievable
-// from the project detail screen) alongside its hash, which remains the value
-// actually checked on every authenticated request.
+// Create a project. Admin only. The plaintext key is stored (product decision —
+// retrievable from the project detail screen) alongside its hash, which remains
+// the value actually checked on every authenticated request.
 projectsRoute.post('/', async (c) => {
+  if (c.get('user').role !== 'admin') {
+    return c.json({ error: 'Only admins can create projects' }, 403)
+  }
+
   const body = await c.req.json().catch(() => null)
   const parsed = createProjectSchema.safeParse(body)
 
@@ -45,11 +51,15 @@ projectsRoute.post('/', async (c) => {
 
 // List projects — for the projects table. Never returns the key or its hash,
 // only the prefix, so a casual glance at the list can't leak a usable key.
+// Scoped: a non-admin sees only the projects they're a member of.
 projectsRoute.get('/', async (c) => {
   const db = getDb()
+  const allowed = await allowedProjectIds(c.get('user'))
+  const filter = allowed === null ? {} : { _id: { $in: allowed } }
+
   const projects = await db
     .collection<Project>('projects')
-    .find({}, { projection: { api_key_hash: 0, api_key: 0 } })
+    .find(filter, { projection: { api_key_hash: 0, api_key: 0 } })
     .toArray()
 
   return c.json(projects)
@@ -61,6 +71,9 @@ projectsRoute.get('/:projectId', async (c) => {
   const projectId = c.req.param('projectId')
   if (!projectId || !ObjectId.isValid(projectId)) {
     return c.json({ error: 'Invalid projectId' }, 400)
+  }
+  if (!(await hasProjectAccess(c.get('user'), projectId))) {
+    return c.json({ error: 'You do not have access to this project' }, 403)
   }
 
   const db = getDb()

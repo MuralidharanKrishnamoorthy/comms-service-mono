@@ -1,9 +1,12 @@
 import type {
   ApiErrorDetails,
+  AuthUser,
   Category,
   CreatedProject,
+  ManagedUser,
   MessageLog,
   Project,
+  Role,
   Template,
   TemplateWithAttached,
 } from './types'
@@ -11,6 +14,13 @@ import type {
 export const API_BASE: string =
   (import.meta.env.VITE_API_BASE as string | undefined)?.replace(/\/$/, '') ||
   'http://localhost:3000'
+
+// Called when any request comes back 401 (session missing/expired). The
+// AuthProvider registers this to drop the user and send them to the login view.
+let onUnauthorized: (() => void) | null = null
+export function setUnauthorizedHandler(fn: (() => void) | null) {
+  onUnauthorized = fn
+}
 
 // One error type for everything a screen needs to branch on:
 //   isNetwork  → couldn't reach the backend at all (show the "is it running?" banner)
@@ -52,11 +62,13 @@ async function request<T>(
   try {
     res = await fetch(url, {
       ...rest,
+      // Send the httpOnly session cookie with every request. We still never set
+      // an Authorization header — that scheme is reserved for the send API.
+      credentials: 'include',
       headers: {
         ...(rest.body ? { 'Content-Type': 'application/json' } : {}),
         ...(rest.headers ?? {}),
       },
-      // NOTE: never send an Authorization header — the dashboard is unauthenticated.
     })
   } catch {
     throw new ApiError(`Can't reach the API at ${API_BASE}`, { isNetwork: true })
@@ -73,6 +85,12 @@ async function request<T>(
   }
 
   if (!res.ok) {
+    // Session gone/expired: let the app drop to the login view. Skip the /auth/*
+    // probes themselves (login failure, the initial /auth/me check) so they can
+    // handle their own 401 without triggering a redirect.
+    if (res.status === 401 && !path.startsWith('/auth/')) {
+      onUnauthorized?.()
+    }
     const bodyObj = (parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : {})
     const message =
       (typeof bodyObj.error === 'string' && bodyObj.error) || `Request failed (${res.status})`
@@ -150,3 +168,41 @@ export const listLogs = (
   projectId: string,
   filters: { status?: string; channel?: string; template_key?: string } = {}
 ) => request<MessageLog[]>(`/projects/${projectId}/logs`, { query: filters })
+
+// ---------- Auth ----------
+export const login = (email: string, password: string) =>
+  request<AuthUser>('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ email, password }),
+  })
+
+export const logout = () => request<{ ok: true }>('/auth/logout', { method: 'POST' })
+
+export const getMe = () => request<AuthUser>('/auth/me')
+
+// ---------- Users & access (admin only) ----------
+export interface CreateUserBody {
+  name: string
+  email: string
+  password: string
+  role: Role
+  project_ids?: string[]
+}
+
+// All fields optional; omit `password` to leave it unchanged.
+export interface UpdateUserBody {
+  name?: string
+  email?: string
+  password?: string
+  role?: Role
+  status?: 'active' | 'disabled'
+  project_ids?: string[]
+}
+
+export const listUsers = () => request<ManagedUser[]>('/users')
+
+export const createUser = (body: CreateUserBody) =>
+  request<ManagedUser>('/users', { method: 'POST', body: JSON.stringify(body) })
+
+export const updateUser = (id: string, body: UpdateUserBody) =>
+  request<ManagedUser>(`/users/${id}`, { method: 'PATCH', body: JSON.stringify(body) })
