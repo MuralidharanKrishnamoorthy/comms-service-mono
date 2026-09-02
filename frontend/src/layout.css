@@ -381,6 +381,12 @@
   font-size: 14px;
 }
 
+.preview-html img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+}
+
 .preview-plain {
   padding: 14px;
   background: #fff;

@@ -3,8 +3,8 @@ import { route } from 'preact-router'
 import { useStore } from '../store'
 import { ApiError, API_BASE, listTemplates } from '../api'
 import type { Template } from '../types'
-import { ApiBanner, ChannelChips, PageHeader } from '../components/ui'
-import { formatDate } from '../util'
+import { ApiBanner, ChannelChips, Dropdown, PageHeader } from '../components/ui'
+import { enabledChannels, formatDate } from '../util'
 
 export function Templates(_props: { path?: string }) {
   const { projects, selectedProjectId, selectedProject, setSelectedProjectId } = useStore()
@@ -69,23 +69,14 @@ export function Templates(_props: { path?: string }) {
       <div class="toolbar">
         <div class="field toolbar-field">
           <label>Project</label>
-          {projects.length === 0 ? (
-            <select disabled>
-              <option>No projects yet</option>
-            </select>
-          ) : (
-            <select
-              class="project-select"
-              value={selectedProjectId ?? ''}
-              onChange={(e) => setSelectedProjectId((e.target as HTMLSelectElement).value)}
-            >
-              {projects.map((p) => (
-                <option key={p._id} value={p._id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          )}
+          <Dropdown
+            class="project-select"
+            disabled={projects.length === 0}
+            placeholder="No projects yet"
+            value={selectedProjectId ?? ''}
+            onChange={setSelectedProjectId}
+            options={projects.map((p) => ({ value: p._id, label: p.name }))}
+          />
         </div>
       </div>
 
@@ -123,7 +114,7 @@ export function Templates(_props: { path?: string }) {
                     <div class="cell-secondary mono">{t.template_key}</div>
                   </td>
                   <td>
-                    <ChannelChips channels={Object.keys(t.channels ?? {})} />
+                    <ChannelChips channels={enabledChannels(t.channels ?? {})} />
                   </td>
                   <td class="cell-faint">{formatDate(t.updated_at)}</td>
                 </tr>

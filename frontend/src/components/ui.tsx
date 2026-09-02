@@ -1,6 +1,87 @@
 import type { ComponentChildren } from 'preact'
-import { useEffect } from 'preact/hooks'
+import { useEffect, useRef, useState } from 'preact/hooks'
 import type { MessageStatus } from '../types'
+
+// ---------- Dropdown (native <select>'s open list can't be styled — its
+// popup is rendered by the OS outside CSS reach in Chromium/Windows. This
+// renders the whole thing in-page instead, so the open menu keeps the same
+// rounded corners as everything else.) ----------
+export interface DropdownOption {
+  value: string
+  label: string
+}
+
+export function Dropdown({
+  value,
+  onChange,
+  options,
+  disabled,
+  placeholder,
+  class: className,
+}: {
+  value: string
+  onChange: (value: string) => void
+  options: DropdownOption[]
+  disabled?: boolean
+  placeholder?: string
+  class?: string
+}) {
+  const [open, setOpen] = useState(false)
+  const rootRef = useRef<HTMLDivElement>(null)
+  const selected = options.find((o) => o.value === value)
+
+  useEffect(() => {
+    if (!open) return
+    const onDocClick = (e: MouseEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('mousedown', onDocClick)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDocClick)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  return (
+    <div class={`dropdown ${className ?? ''}`} ref={rootRef}>
+      <button
+        type="button"
+        class="dropdown-trigger"
+        disabled={disabled}
+        onClick={() => setOpen((o) => !o)}
+      >
+        <span class={selected ? '' : 'dropdown-placeholder'}>{selected?.label ?? placeholder ?? ''}</span>
+        <svg class="dropdown-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6 9l6 6 6-6" />
+        </svg>
+      </button>
+
+      {open && (
+        <div class="dropdown-menu" role="listbox">
+          {options.map((o) => (
+            <button
+              type="button"
+              key={o.value}
+              class={`dropdown-option ${o.value === value ? 'selected' : ''}`}
+              role="option"
+              aria-selected={o.value === value}
+              onClick={() => {
+                onChange(o.value)
+                setOpen(false)
+              }}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 // ---------- Status badge ----------
 export function StatusBadge({ status }: { status: string }) {

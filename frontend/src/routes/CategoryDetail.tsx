@@ -9,7 +9,8 @@ import {
   getCategoryTemplates,
 } from '../api'
 import type { Category, TemplateWithAttached } from '../types'
-import { ApiBanner, BackLink, ChannelChips, PageHeader } from '../components/ui'
+import { ApiBanner, BackLink, ChannelChips, Dropdown, PageHeader } from '../components/ui'
+import { enabledChannels } from '../util'
 
 export function CategoryDetail({ categoryId }: { path?: string; categoryId?: string }) {
   const { projects, selectedProjectId, selectedProject, setSelectedProjectId } = useStore()
@@ -85,23 +86,14 @@ export function CategoryDetail({ categoryId }: { path?: string; categoryId?: str
       <div class="toolbar">
         <div class="field toolbar-field">
           <label>Project</label>
-          {projects.length === 0 ? (
-            <select disabled>
-              <option>No projects yet</option>
-            </select>
-          ) : (
-            <select
-              class="project-select"
-              value={selectedProjectId ?? ''}
-              onChange={(e) => setSelectedProjectId((e.target as HTMLSelectElement).value)}
-            >
-              {projects.map((p) => (
-                <option key={p._id} value={p._id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          )}
+          <Dropdown
+            class="project-select"
+            disabled={projects.length === 0}
+            placeholder="No projects yet"
+            value={selectedProjectId ?? ''}
+            onChange={setSelectedProjectId}
+            options={projects.map((p) => ({ value: p._id, label: p.name }))}
+          />
         </div>
       </div>
 
@@ -137,7 +129,7 @@ export function CategoryDetail({ categoryId }: { path?: string; categoryId?: str
                         <div class="cell-secondary mono">{t.template_key}</div>
                       </td>
                       <td>
-                        <ChannelChips channels={Object.keys(t.channels ?? {})} />
+                        <ChannelChips channels={enabledChannels(t.channels ?? {})} />
                       </td>
                       <td style={{ textAlign: 'right' }}>
                         <button

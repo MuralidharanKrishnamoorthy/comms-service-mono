@@ -45,9 +45,12 @@ templatesRoute.post('/', async (c) => {
     template_key: parsed.data.template_key,
     name: parsed.data.name,
     channels: {
-      email: parsed.data.channels.email ? withVersionAndLive(parsed.data.channels.email) : undefined,
-      sms: parsed.data.channels.sms ? withVersionAndLive(parsed.data.channels.sms) : undefined,
-      push: parsed.data.channels.push ? withVersionAndLive(parsed.data.channels.push) : undefined,
+      // A key set to `undefined` still gets stored as BSON null by the
+      // MongoDB driver's default serializer — omit the key entirely via
+      // conditional spread so a disabled channel is truly absent, not null.
+      ...(parsed.data.channels.email ? { email: withVersionAndLive(parsed.data.channels.email) } : {}),
+      ...(parsed.data.channels.sms ? { sms: withVersionAndLive(parsed.data.channels.sms) } : {}),
+      ...(parsed.data.channels.push ? { push: withVersionAndLive(parsed.data.channels.push) } : {}),
     },
     created_at: new Date(),
     updated_at: new Date(),

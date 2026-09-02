@@ -85,6 +85,39 @@ async function request<T>(
   return parsed as T
 }
 
+// ---------- Uploads ----------
+// A dedicated fetch, not request<T>() — that helper always sets
+// Content-Type: application/json whenever a body is present, which would
+// break the multipart boundary the browser sets automatically for FormData.
+export async function uploadImage(file: File): Promise<{ url: string }> {
+  const form = new FormData()
+  form.append('file', file)
+
+  let res: Response
+  try {
+    res = await fetch(`${API_BASE}/uploads`, { method: 'POST', body: form })
+  } catch {
+    throw new ApiError(`Can't reach the API at ${API_BASE}`, { isNetwork: true })
+  }
+
+  const text = await res.text()
+  let parsed: unknown
+  try {
+    parsed = text ? JSON.parse(text) : undefined
+  } catch {
+    parsed = text
+  }
+
+  if (!res.ok) {
+    const bodyObj = parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : {}
+    const message = (typeof bodyObj.error === 'string' && bodyObj.error) || `Upload failed (${res.status})`
+    throw new ApiError(message, { status: res.status })
+  }
+
+  const { url } = parsed as { url: string }
+  return { url: `${API_BASE}${url}` }
+}
+
 // ---------- Projects ----------
 export const listProjects = () => request<Project[]>('/projects')
 

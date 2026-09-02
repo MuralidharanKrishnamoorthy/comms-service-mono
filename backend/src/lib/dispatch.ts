@@ -1,4 +1,4 @@
-import { renderTemplate } from './template.js'
+import { renderTemplate, wrapEmailHtml } from './template.js'
 import { resendEmailProvider } from '../providers/resend.js'
 import { stubSmsProvider, stubPushProvider } from '../providers/stub.js'
 import type { ChannelContent } from '../models/template.js'
@@ -19,7 +19,8 @@ export async function dispatchSend(
 ): Promise<string> {
   if (channel === 'email') {
     const subject = renderTemplate(content.subject ?? '', data)
-    const html = renderTemplate(content.html_body ?? '', data, { escapeHtml: true })
+    const renderedHtml = renderTemplate(content.html_body ?? '', data, { escapeHtml: true })
+    const html = wrapEmailHtml(renderedHtml)
     const result = await resendEmailProvider.send({ to: recipient, subject, html })
     return result.providerMessageId
   }

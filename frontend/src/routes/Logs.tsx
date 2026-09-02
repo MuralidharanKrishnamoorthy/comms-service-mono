@@ -2,7 +2,7 @@ import { useEffect, useState } from 'preact/hooks'
 import { useStore } from '../store'
 import { ApiError, API_BASE, listLogs } from '../api'
 import type { MessageLog, MessageStatus } from '../types'
-import { ApiBanner, Drawer, PageHeader, StatusBadge } from '../components/ui'
+import { ApiBanner, Drawer, Dropdown, PageHeader, StatusBadge } from '../components/ui'
 import { formatDate } from '../util'
 
 const STATUSES: MessageStatus[] = ['pending', 'sent', 'delivered', 'failed']
@@ -72,25 +72,19 @@ export function Logs(_props: { path?: string }) {
       <div class="toolbar">
         <div class="field toolbar-field">
           <label>Status</label>
-          <select value={status} onChange={(e) => setStatus((e.target as HTMLSelectElement).value)}>
-            <option value="">All statuses</option>
-            {STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
+          <Dropdown
+            value={status}
+            onChange={setStatus}
+            options={[{ value: '', label: 'All statuses' }, ...STATUSES.map((s) => ({ value: s, label: s }))]}
+          />
         </div>
         <div class="field toolbar-field">
           <label>Channel</label>
-          <select value={channel} onChange={(e) => setChannel((e.target as HTMLSelectElement).value)}>
-            <option value="">All channels</option>
-            {CHANNELS.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
+          <Dropdown
+            value={channel}
+            onChange={setChannel}
+            options={[{ value: '', label: 'All channels' }, ...CHANNELS.map((c) => ({ value: c, label: c }))]}
+          />
         </div>
         <div class="field toolbar-field" style={{ minWidth: 220 }}>
           <label>Template key</label>

@@ -1,6 +1,7 @@
 import { useRef, useState } from 'preact/hooks'
 import type { Channel } from '../types'
-import { extractVariables } from '../util'
+import { ApiError, uploadImage } from '../api'
+import { extractVariables, wrapEmailHtml } from '../util'
 import { RichTextEditor } from './RichTextEditor'
 
 // Raw HTML source editor with a small formatting toolbar. Buttons wrap the
@@ -16,6 +17,9 @@ function HtmlSourceEditor({
   invalid: boolean
 }) {
   const taRef = useRef<HTMLTextAreaElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
 
   const wrap = (open: string, close: string) => {
     const ta = taRef.current
@@ -32,6 +36,41 @@ function HtmlSourceEditor({
       el.focus()
       el.setSelectionRange(caretAt, caretAt)
     })
+  }
+
+  const insertAtCursor = (text: string) => {
+    const ta = taRef.current
+    const start = ta?.selectionStart ?? value.length
+    const end = ta?.selectionEnd ?? value.length
+    const next = value.slice(0, start) + text + value.slice(end)
+    onChange(next)
+    const caretAt = start + text.length
+    requestAnimationFrame(() => {
+      const el = taRef.current
+      if (!el) return
+      el.focus()
+      el.setSelectionRange(caretAt, caretAt)
+    })
+  }
+
+  const pickImage = () => fileInputRef.current?.click()
+
+  const onFileChosen = async (e: Event) => {
+    const input = e.target as HTMLInputElement
+    const file = input.files?.[0]
+    input.value = ''
+    if (!file) return
+
+    setUploadError(null)
+    setUploading(true)
+    try {
+      const { url } = await uploadImage(file)
+      insertAtCursor(`<img src="${url}" style="max-width:100%;" alt="" />`)
+    } catch (err) {
+      setUploadError(err instanceof ApiError ? err.message : 'Image upload failed.')
+    } finally {
+      setUploading(false)
+    }
   }
 
   return (
@@ -61,7 +100,28 @@ function HtmlSourceEditor({
             onInput={(e) => wrap(`<span style="background-color:${(e.target as HTMLInputElement).value}">`, '</span>')}
           />
         </label>
+
+        <span class="rte-sep" />
+
+        <button type="button" class="rte-btn" title="Attach image" disabled={uploading} onClick={pickImage}>
+          {uploading ? (
+            '…'
+          ) : (
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21.44 11.05l-9.19 9.19a5 5 0 0 1-7.07-7.07l9.19-9.19a3 3 0 0 1 4.24 4.24l-9.19 9.19a1 1 0 0 1-1.41-1.41l8.48-8.48" />
+            </svg>
+          )}
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml"
+          style={{ display: 'none' }}
+          onChange={onFileChosen}
+        />
       </div>
+
+      {uploadError && <div class="field-error" style={{ padding: '6px 14px 0' }}>{uploadError}</div>}
 
       <textarea
         ref={taRef}
@@ -197,7 +257,7 @@ export function ChannelFields({
             class="preview-html"
             // Preview only — content is authored by the internal team.
             dangerouslySetInnerHTML={{
-              __html: values.html_body || '<em>(no body)</em>',
+              __html: values.html_body ? wrapEmailHtml(values.html_body) : '<em>(no body)</em>',
             }}
           />
         </div>

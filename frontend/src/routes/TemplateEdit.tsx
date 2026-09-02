@@ -5,7 +5,7 @@ import { ApiError, API_BASE, getTemplate, updateChannel } from '../api'
 import type { Channel, Template } from '../types'
 import { ChannelFields, variablesFor, type ChannelValues } from '../components/ChannelFields'
 import { ApiBanner, BackLink, PageHeader } from '../components/ui'
-import { formatDate } from '../util'
+import { enabledChannels, formatDate } from '../util'
 
 const CHANNEL_LABELS: Record<Channel, string> = { email: 'Email', sms: 'SMS', push: 'Push' }
 
@@ -35,13 +35,12 @@ export function TemplateEdit({ templateKey }: { path?: string; templateKey?: str
         if (cancelled) return
         setTemplate(t)
         const initial: Partial<Record<Channel, ChannelValues>> = {}
-        for (const ch of Object.keys(t.channels) as Channel[]) {
-          const c = t.channels[ch]
-          if (!c) continue
+        for (const ch of enabledChannels(t.channels)) {
+          const c = t.channels[ch]!
           initial[ch] = { subject: c.subject, html_body: c.html_body, title: c.title, body: c.body }
         }
         setContent(initial)
-        const first = (Object.keys(t.channels) as Channel[])[0] ?? null
+        const first = enabledChannels(t.channels)[0] ?? null
         setActiveTab(first)
       })
       .catch((err) => {
@@ -57,10 +56,7 @@ export function TemplateEdit({ templateKey }: { path?: string; templateKey?: str
     }
   }, [selectedProject, templateKey])
 
-  const channelKeys = useMemo(
-    () => (template ? (Object.keys(template.channels) as Channel[]) : []),
-    [template]
-  )
+  const channelKeys = useMemo(() => (template ? enabledChannels(template.channels) : []), [template])
 
   if (!selectedProject) {
     return (

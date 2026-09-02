@@ -74,3 +74,20 @@ export function renderTemplate(text: string, data: Record<string, unknown>, opti
     return options.escapeHtml ? escapeHtml(stringValue) : stringValue
   })
 }
+
+// A template author who never touches formatting still gets a properly laid
+// out email rather than raw unstyled paragraphs. Only applied to body
+// fragments — a template that's already a full HTML document (built by hand
+// with its own <html>/<!DOCTYPE>) is left untouched, since it's already
+// designed. Runs after variable substitution, on both the real send path and
+// the dashboard's live preview, so what you preview is exactly what ships.
+const FULL_DOCUMENT_PATTERN = /<!doctype html|<html[\s>]/i
+
+export function wrapEmailHtml(bodyHtml: string): string {
+  if (FULL_DOCUMENT_PATTERN.test(bodyHtml)) return bodyHtml
+  return `<div style="background:#f5f6f4;padding:32px 16px;font-family:Arial,Helvetica,sans-serif;">
+  <div style="max-width:600px;margin:0 auto;background:#ffffff;border-radius:8px;padding:32px;color:#15181d;font-size:15px;line-height:1.6;">
+    ${bodyHtml}
+  </div>
+</div>`
+}
