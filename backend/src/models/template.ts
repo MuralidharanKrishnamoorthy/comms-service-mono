@@ -10,7 +10,7 @@ const channelContentSchema = z.object({
 })
 
 export const createTemplateSchema = z.object({
-  category: z.string().min(1).max(60),
+  category: z.string().max(60).optional().default('General'),
   template_key: z
     .string()
     .min(1)

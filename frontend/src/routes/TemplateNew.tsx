@@ -1,19 +1,17 @@
-import { useEffect, useState } from 'preact/hooks'
+import { useState } from 'preact/hooks'
 import { route } from 'preact-router'
 import { useStore } from '../store'
-import { ApiError, API_BASE, createTemplate, listCategories } from '../api'
+import { ApiError, API_BASE, createTemplate } from '../api'
 import type { Channel } from '../types'
 import { CHANNELS } from '../util'
 import { ChannelFields, variablesFor, type ChannelValues } from '../components/ChannelFields'
-import { PageHeader } from '../components/ui'
+import { BackLink, PageHeader } from '../components/ui'
 
 const CHANNEL_LABELS: Record<Channel, string> = { email: 'Email', sms: 'SMS', push: 'Push' }
 
 export function TemplateNew(_props: { path?: string }) {
   const { selectedProject } = useStore()
-  const [categories, setCategories] = useState<string[]>([])
 
-  const [category, setCategory] = useState('')
   const [templateKey, setTemplateKey] = useState('')
   const [name, setName] = useState('')
   const [enabled, setEnabled] = useState<Record<Channel, boolean>>({
@@ -38,13 +36,6 @@ export function TemplateNew(_props: { path?: string }) {
   const [banner, setBanner] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
-  useEffect(() => {
-    if (!selectedProject) return
-    listCategories(selectedProject._id)
-      .then(setCategories)
-      .catch(() => setCategories([]))
-  }, [selectedProject])
-
   if (!selectedProject) {
     return (
       <div>
@@ -66,9 +57,6 @@ export function TemplateNew(_props: { path?: string }) {
     const te: Record<string, string> = {}
     const ce: Record<Channel, Record<string, string>> = { email: {}, sms: {}, push: {} }
     let banner: string | null = null
-
-    if (!category.trim()) te.category = 'Category is required.'
-    else if (category.trim().length > 60) te.category = 'Category must be 60 characters or fewer.'
 
     if (!templateKey) te.template_key = 'Template key is required.'
     else if (templateKey.length > 80) te.template_key = 'Template key must be 80 characters or fewer.'
@@ -122,13 +110,12 @@ export function TemplateNew(_props: { path?: string }) {
         channels.push = { title: v.title ?? '', body: v.body ?? '', variables }
       }
     }
-    return { category: category.trim(), template_key: templateKey, name: name.trim(), channels }
+    return { template_key: templateKey, name: name.trim(), channels }
   }
 
   const applyServerErrors = (err: ApiError) => {
     const fe = err.details?.fieldErrors ?? {}
     const te: Record<string, string> = {}
-    if (fe.category?.[0]) te.category = fe.category[0]
     if (fe.template_key?.[0]) te.template_key = fe.template_key[0]
     if (fe.name?.[0]) te.name = fe.name[0]
     setTopErrors(te)
@@ -171,16 +158,7 @@ export function TemplateNew(_props: { path?: string }) {
 
   return (
     <div>
-      <a
-        class="back-link"
-        href="/templates"
-        onClick={(e) => {
-          e.preventDefault()
-          route('/templates')
-        }}
-      >
-        ← Back to templates
-      </a>
+      <BackLink href="/templates" label="Back to templates" onClick={() => route('/templates')} />
       <PageHeader
         title="New template"
         subtitle={`Creating in ${selectedProject.name}.`}
@@ -190,36 +168,16 @@ export function TemplateNew(_props: { path?: string }) {
 
       <form onSubmit={submit}>
         <div class="card" style={{ marginBottom: 18 }}>
-          <div class="field-row">
-            <div class="field">
-              <label>Category <span class="hint">(1–60 chars)</span></label>
-              <input
-                type="text"
-                list="category-suggestions"
-                value={category}
-                placeholder="e.g. Signup"
-                class={topErrors.category ? 'invalid' : ''}
-                onInput={(e) => setCategory((e.target as HTMLInputElement).value)}
-              />
-              <datalist id="category-suggestions">
-                {categories.map((c) => (
-                  <option key={c} value={c} />
-                ))}
-              </datalist>
-              {topErrors.category && <div class="field-error">{topErrors.category}</div>}
-            </div>
-
-            <div class="field">
-              <label>Template key <span class="hint">(UPPER_SNAKE_CASE)</span></label>
-              <input
-                type="text"
-                class={`mono ${topErrors.template_key ? 'invalid' : ''}`}
-                value={templateKey}
-                placeholder="WELCOME_EMAIL"
-                onInput={(e) => onKeyInput((e.target as HTMLInputElement).value)}
-              />
-              {topErrors.template_key && <div class="field-error">{topErrors.template_key}</div>}
-            </div>
+          <div class="field">
+            <label>Template key <span class="hint">(UPPER_SNAKE_CASE)</span></label>
+            <input
+              type="text"
+              class={`mono ${topErrors.template_key ? 'invalid' : ''}`}
+              value={templateKey}
+              placeholder="WELCOME_EMAIL"
+              onInput={(e) => onKeyInput((e.target as HTMLInputElement).value)}
+            />
+            {topErrors.template_key && <div class="field-error">{topErrors.template_key}</div>}
           </div>
 
           <div class="field" style={{ marginBottom: 0 }}>

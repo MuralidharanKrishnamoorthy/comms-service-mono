@@ -426,14 +426,20 @@
 .back-link {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 7px;
   color: var(--ink-muted);
-  font-size: 13px;
-  font-weight: 500;
-  margin-bottom: 14px;
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 16px;
 }
 .back-link:hover {
   color: var(--ink);
+}
+
+.back-link-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
 }
 
 .detail-links {

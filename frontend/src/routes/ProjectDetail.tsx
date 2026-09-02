@@ -3,7 +3,7 @@ import { route } from 'preact-router'
 import { useStore } from '../store'
 import { ApiError, API_BASE, getProject } from '../api'
 import type { Project } from '../types'
-import { ApiBanner, ChannelChips, StatusBadge } from '../components/ui'
+import { ApiBanner, BackLink, ChannelChips, StatusBadge } from '../components/ui'
 import { formatDate } from '../util'
 
 export function ProjectDetail({ id }: { path?: string; id?: string }) {
@@ -60,16 +60,7 @@ export function ProjectDetail({ id }: { path?: string; id?: string }) {
 
   return (
     <div>
-      <a
-        class="back-link"
-        href="/projects"
-        onClick={(e) => {
-          e.preventDefault()
-          route('/projects')
-        }}
-      >
-        ← Back to projects
-      </a>
+      <BackLink href="/projects" label="Back to projects" onClick={() => route('/projects')} />
 
       {unreachable && <ApiBanner base={API_BASE} />}
 

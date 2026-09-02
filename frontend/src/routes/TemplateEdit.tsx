@@ -4,7 +4,7 @@ import { useStore } from '../store'
 import { ApiError, API_BASE, getTemplate, updateChannel } from '../api'
 import type { Channel, Template } from '../types'
 import { ChannelFields, variablesFor, type ChannelValues } from '../components/ChannelFields'
-import { ApiBanner, PageHeader } from '../components/ui'
+import { ApiBanner, BackLink, PageHeader } from '../components/ui'
 import { formatDate } from '../util'
 
 const CHANNEL_LABELS: Record<Channel, string> = { email: 'Email', sms: 'SMS', push: 'Push' }
@@ -127,16 +127,7 @@ export function TemplateEdit({ templateKey }: { path?: string; templateKey?: str
 
   return (
     <div>
-      <a
-        class="back-link"
-        href="/templates"
-        onClick={(e) => {
-          e.preventDefault()
-          route('/templates')
-        }}
-      >
-        ← Back to templates
-      </a>
+      <BackLink href="/templates" label="Back to templates" onClick={() => route('/templates')} />
 
       {loadError === 'network' && <ApiBanner base={API_BASE} />}
 

@@ -4,6 +4,7 @@ import { Link as MatchLink } from 'preact-router/match'
 import { Projects } from './routes/Projects'
 import { ProjectDetail } from './routes/ProjectDetail'
 import { Templates } from './routes/Templates'
+import { Categories } from './routes/Categories'
 import { TemplateNew } from './routes/TemplateNew'
 import { TemplateEdit } from './routes/TemplateEdit'
 import { Logs } from './routes/Logs'
@@ -27,6 +28,7 @@ function NavIcon({ d }: { d: string }) {
 const ICONS = {
   projects: 'M3 7l9-4 9 4-9 4-9-4zM3 7v10l9 4 9-4V7',
   templates: 'M4 4h16v4H4zM4 12h10v8H4zM17 12h3v8h-3z',
+  categories: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z',
   logs: 'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',
 }
 
@@ -44,6 +46,10 @@ function Sidebar() {
         <NavLink href="/templates" activeClassName="active">
           <NavIcon d={ICONS.templates} />
           Templates
+        </NavLink>
+        <NavLink href="/categories" activeClassName="active">
+          <NavIcon d={ICONS.categories} />
+          Categories
         </NavLink>
         <NavLink href="/logs" activeClassName="active">
           <NavIcon d={ICONS.logs} />
@@ -65,6 +71,7 @@ export function App() {
             <Projects path="/projects" />
             <ProjectDetail path="/projects/:id" />
             <Templates path="/templates" />
+            <Categories path="/categories" />
             <TemplateNew path="/templates/new" />
             <TemplateEdit path="/templates/:templateKey" />
             <Logs path="/logs" />

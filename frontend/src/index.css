@@ -186,6 +186,177 @@ textarea.invalid {
   border-color: var(--danger);
 }
 
+.field-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.mode-toggle {
+  display: inline-flex;
+  padding: 2px;
+  gap: 2px;
+  background: var(--surface-alt);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+}
+
+.mode-toggle-btn {
+  border: none;
+  background: transparent;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-muted);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.mode-toggle-btn:hover {
+  color: var(--ink);
+}
+
+.mode-toggle-btn.active {
+  background: var(--surface);
+  color: var(--accent-ink);
+  box-shadow: 0 1px 2px rgba(20, 20, 15, 0.08);
+}
+
+/* ---------- Rich text editor (email body) ---------- */
+.rte {
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+}
+
+.rte-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  gap: 6px;
+  padding: 8px 10px;
+  background: var(--surface-alt);
+  border-bottom: 1px solid var(--border-strong);
+}
+
+.rte-toolbar > * {
+  flex-shrink: 0;
+}
+
+.rte-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.rte-btn:hover {
+  background: var(--surface);
+  border-color: var(--border-strong);
+}
+
+.rte-color-picker {
+  position: relative;
+  display: inline-block;
+  align-self: center;
+  width: 28px;
+  height: 28px;
+  line-height: 28px;
+  text-align: center;
+  vertical-align: middle;
+  border-radius: 5px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.rte-color-picker:hover {
+  background: var(--surface);
+}
+
+.rte-color-picker-hl {
+  font-size: 11px;
+}
+
+.rte-color-picker input[type='color'] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: none;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.rte-sep {
+  width: 1px;
+  height: 20px;
+  background: var(--border-strong);
+  margin: 0 4px;
+}
+
+.rte-html-source {
+  display: block;
+  width: 100%;
+  min-height: 180px;
+  max-height: 420px;
+  padding: 12px 14px;
+  border: none;
+  border-radius: 0;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.rte-html-source:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.rte-content {
+  padding: 12px 14px;
+  min-height: 180px;
+  max-height: 420px;
+  overflow-y: auto;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.rte-content .ProseMirror {
+  outline: none;
+}
+
+.rte-content .ProseMirror p {
+  margin: 0 0 10px;
+}
+
+.rte-content .ProseMirror img {
+  max-width: 100%;
+  border-radius: 6px;
+}
+
+.rte-content .ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--ink-faint);
+  pointer-events: none;
+  height: 0;
+}
+
 .field {
   margin-bottom: 16px;
 }

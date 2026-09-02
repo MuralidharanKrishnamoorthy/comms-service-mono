@@ -119,6 +119,25 @@ export function Drawer({
   )
 }
 
+// ---------- Back navigation link ----------
+export function BackLink({ href, label, onClick }: { href: string; label: string; onClick: () => void }) {
+  return (
+    <a
+      class="back-link"
+      href={href}
+      onClick={(e) => {
+        e.preventDefault()
+        onClick()
+      }}
+    >
+      <svg class="back-link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M15 18l-6-6 6-6" />
+      </svg>
+      {label}
+    </a>
+  )
+}
+
 // ---------- Page header ----------
 export function PageHeader({
   title,
