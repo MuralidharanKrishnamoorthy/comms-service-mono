@@ -2,11 +2,11 @@ import { render } from 'preact'
 import './index.css'
 import './layout.css'
 import { App } from './app.tsx'
-import { AuthProvider } from './auth.tsx'
+import { StoreProvider } from './store.tsx'
 
 render(
-  <AuthProvider>
+  <StoreProvider>
     <App />
-  </AuthProvider>,
+  </StoreProvider>,
   document.getElementById('app')!
 )

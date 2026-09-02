@@ -26,12 +26,6 @@ async function ensureIndexes(database: Db): Promise<void> {
     { category_id: 1, project_id: 1, template_key: 1 },
     { unique: true }
   )
-  // Dashboard authorization: users + project membership.
-  await database.collection('users').createIndex({ email: 1 }, { unique: true })
-  await database
-    .collection('project_members')
-    .createIndex({ user_id: 1, project_id: 1 }, { unique: true })
-  await database.collection('project_members').createIndex({ user_id: 1 })
 }
 
 export async function connectDb(): Promise<Db> {
