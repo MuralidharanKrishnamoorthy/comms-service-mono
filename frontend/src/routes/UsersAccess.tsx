@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'preact/hooks'
+import { route } from 'preact-router'
 import { useAuth } from '../auth'
 import { useStore } from '../store'
 import {
@@ -45,6 +46,8 @@ export function UsersAccess(_props: { path?: string }) {
     return (id: string) => m.get(id) ?? id.slice(-6)
   }, [projects])
 
+  const isAdmin = user?.role === 'admin'
+
   const refresh = () => {
     setLoading(true)
     setUnreachable(false)
@@ -57,17 +60,16 @@ export function UsersAccess(_props: { path?: string }) {
       .finally(() => setLoading(false))
   }
 
-  useEffect(refresh, [])
+  // Non-admins can't be here — send them to Projects. (Backend enforces it too.)
+  useEffect(() => {
+    if (!isAdmin) route('/projects', true)
+  }, [isAdmin])
 
-  // Backend enforces this too; this is just so a hand-typed URL isn't confusing.
-  if (user?.role !== 'admin') {
-    return (
-      <div>
-        <PageHeader title="Users & Access" />
-        <div class="empty">You don't have access to this page.</div>
-      </div>
-    )
-  }
+  useEffect(() => {
+    if (isAdmin) refresh()
+  }, [isAdmin])
+
+  if (!isAdmin) return null
 
   return (
     <div>

@@ -1,4 +1,5 @@
 import { useState } from 'preact/hooks'
+import { route } from 'preact-router'
 import { useAuth } from '../auth'
 import { ApiError, API_BASE } from '../api'
 
@@ -73,6 +74,9 @@ export function Login() {
     try {
       await login(email.trim(), password)
       // On success the AuthProvider sets the user and the app renders the shell.
+      // Always land on Projects — the URL may still point at wherever the last
+      // session was (e.g. /admin/users), which a non-admin can't open.
+      route('/projects', true)
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.isNetwork) setError(`Can't reach the API at ${API_BASE} — is the backend running?`)
