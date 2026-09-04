@@ -1,12 +1,18 @@
 import { createMiddleware } from 'hono/factory'
 import { getDb } from '../db.js'
 import { hashApiKey } from '../lib/apiKey.js'
+import type { ApiKey } from '../models/apiKey.js'
 import type { Project } from '../models/project.js'
 
 /**
- * Verifies the "Authorization: Bearer <api_key>" header against a project's
- * stored key hash. On success, attaches the matched project to the request
- * context as c.get('project') for downstream handlers to use.
+ * Verifies the "Authorization: Bearer <api_key>" header for the send API.
+ *
+ * Multi-key aware: the presented token is hashed and looked up in the api_keys
+ * collection (one project can now have many independently-owned keys). The key
+ * must be active, and its project must be active. The matched project is
+ * attached as c.get('project') for downstream handlers — unchanged in spirit
+ * from the old single-key design. This path uses key_hash only; it never
+ * touches the reversible value_encrypted store.
  */
 export const authMiddleware = createMiddleware<{
   Variables: { project: Project }
@@ -21,12 +27,20 @@ export const authMiddleware = createMiddleware<{
   const hash = hashApiKey(key)
 
   const db = getDb()
-  const project = await db.collection<Project>('projects').findOne({ api_key_hash: hash })
+  const apiKey = await db.collection<ApiKey>('api_keys').findOne({ key_hash: hash })
 
+  if (!apiKey) {
+    return c.json({ error: 'Invalid API key' }, 401)
+  }
+  // Revoked keys fail immediately — status is checked, not just the hash match.
+  if (apiKey.status !== 'active') {
+    return c.json({ error: 'API key has been revoked' }, 401)
+  }
+
+  const project = await db.collection<Project>('projects').findOne({ _id: apiKey.project_id })
   if (!project) {
     return c.json({ error: 'Invalid API key' }, 401)
   }
-
   if (project.status !== 'active') {
     return c.json({ error: 'Project is disabled' }, 403)
   }

@@ -20,3 +20,9 @@ export function generateApiKey(): GeneratedApiKey {
 export function hashApiKey(plaintext: string): string {
   return createHash('sha256').update(plaintext).digest('hex')
 }
+
+// The leading, non-secret portion safe to show to anyone who can list keys
+// (e.g. "csvc_1a2b3c4d5e"). Never enough to authenticate with.
+export function keyPrefix(plaintext: string): string {
+  return plaintext.slice(0, 15)
+}

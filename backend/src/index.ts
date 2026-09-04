@@ -13,8 +13,10 @@ import { uploadsRoute } from './routes/uploads.js'
 import { authRoute } from './routes/auth.js'
 import { usersRoute } from './routes/users.js'
 import { membersRoute } from './routes/members.js'
+import { apiKeysRoute } from './routes/apiKeys.js'
 import { dashboardAuth } from './middleware/dashboardAuth.js'
 import { seedAdmin } from './lib/seedAdmin.js'
+import { migrateApiKeys } from './lib/migrateApiKeys.js'
 import { startRetrySweep } from './jobs/retrySweep.js'
 
 const app = new Hono()
@@ -52,6 +54,7 @@ app.use('/uploads', dashboardAuth)
 // (/users and /projects/:id/members apply dashboardAuth + requireAdmin internally)
 
 app.route('/projects/:projectId/members', membersRoute)
+app.route('/projects/:projectId/api-keys', apiKeysRoute)
 app.route('/projects', projectsRoute)
 app.route('/projects/:projectId/templates', templatesRoute)
 app.route('/categories', categoriesRoute)
@@ -66,6 +69,7 @@ app.use(
 async function main() {
   await connectDb()
   await seedAdmin()
+  await migrateApiKeys()
   startRetrySweep()
 
   serve({

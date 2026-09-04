@@ -1,16 +1,15 @@
 import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 import { getDb } from '../db.js'
-import { generateApiKey } from '../lib/apiKey.js'
 import { createProjectSchema, type Project } from '../models/project.js'
+import type { ApiKey } from '../models/apiKey.js'
 import type { AuthEnv } from '../middleware/dashboardAuth.js'
 import { allowedProjectIds, hasProjectAccess } from '../lib/access.js'
 
 export const projectsRoute = new Hono<AuthEnv>()
 
-// Create a project. Admin only. The plaintext key is stored (product decision —
-// retrievable from the project detail screen) alongside its hash, which remains
-// the value actually checked on every authenticated request.
+// Create a project. Admin only. Creating a project no longer mints an API key —
+// keys are created separately, per-owner, from the project's API Keys panel.
 projectsRoute.post('/', async (c) => {
   if (c.get('user').role !== 'admin') {
     return c.json({ error: 'Only admins can create projects' }, 403)
@@ -23,12 +22,8 @@ projectsRoute.post('/', async (c) => {
     return c.json({ error: 'Invalid input', details: parsed.error.flatten() }, 400)
   }
 
-  const { plaintext, hash } = generateApiKey()
-
   const project: Project = {
     name: parsed.data.name,
-    api_key: plaintext,
-    api_key_hash: hash,
     channels_allowed: ['email', 'sms', 'push'],
     status: 'active',
     created_at: new Date(),
@@ -38,22 +33,17 @@ projectsRoute.post('/', async (c) => {
   const db = getDb()
   const result = await db.collection<Project>('projects').insertOne(project)
 
-  return c.json(
-    {
-      id: result.insertedId,
-      name: project.name,
-      api_key: plaintext,
-    },
-    201
-  )
+  return c.json({ id: result.insertedId, name: project.name }, 201)
 })
 
-// List projects — for the projects table. Never returns the key or its hash,
-// so a casual glance at the list can't leak a usable key.
-// Scoped: a non-admin sees only the projects they're a member of.
+// List projects — for the projects table. Scoped: a non-admin sees only the
+// projects they're a member of. Each row carries an active-key count that
+// respects the same visibility as the keys list (admin: all active keys;
+// everyone else: only their own active keys).
 projectsRoute.get('/', async (c) => {
   const db = getDb()
-  const allowed = await allowedProjectIds(c.get('user'))
+  const user = c.get('user')
+  const allowed = allowedProjectIds(user)
   const filter = allowed === null ? {} : { _id: { $in: allowed } }
 
   const projects = await db
@@ -61,24 +51,38 @@ projectsRoute.get('/', async (c) => {
     .find(filter, { projection: { api_key_hash: 0, api_key: 0 } })
     .toArray()
 
-  return c.json(projects)
+  const keyMatch: Record<string, unknown> = { status: 'active' }
+  if (allowed !== null) keyMatch.project_id = { $in: allowed }
+  if (user.role !== 'admin') keyMatch.created_by = user._id
+
+  const counts = await db
+    .collection<ApiKey>('api_keys')
+    .aggregate<{ _id: ObjectId; count: number }>([
+      { $match: keyMatch },
+      { $group: { _id: '$project_id', count: { $sum: 1 } } },
+    ])
+    .toArray()
+  const countByProject = new Map(counts.map((r) => [r._id.toString(), r.count]))
+
+  return c.json(
+    projects.map((p) => ({ ...p, active_key_count: countByProject.get(p._id!.toString()) ?? 0 }))
+  )
 })
 
-// Get one project — the only place the full plaintext key is returned after
-// creation. Used by the project detail screen's "copy key" control.
+// Get one project (metadata only — no key material lives here anymore).
 projectsRoute.get('/:projectId', async (c) => {
   const projectId = c.req.param('projectId')
   if (!projectId || !ObjectId.isValid(projectId)) {
     return c.json({ error: 'Invalid projectId' }, 400)
   }
-  if (!(await hasProjectAccess(c.get('user'), projectId))) {
+  if (!hasProjectAccess(c.get('user'), projectId)) {
     return c.json({ error: 'You do not have access to this project' }, 403)
   }
 
   const db = getDb()
   const project = await db
     .collection<Project>('projects')
-    .findOne({ _id: new ObjectId(projectId) }, { projection: { api_key_hash: 0 } })
+    .findOne({ _id: new ObjectId(projectId) }, { projection: { api_key_hash: 0, api_key: 0 } })
 
   if (!project) {
     return c.json({ error: 'Project not found' }, 404)

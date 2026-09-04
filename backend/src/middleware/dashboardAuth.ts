@@ -50,7 +50,7 @@ export const dashboardAuth = createMiddleware<AuthEnv>(async (c, next) => {
     name: user.name,
     role: user.role,
     status: user.status,
-    project_ids: user.project_ids,
+    project_ids: user.project_ids ?? [],
   })
   await next()
 })

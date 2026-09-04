@@ -19,7 +19,9 @@ function safeUser(user: User) {
     email: user.email,
     role: user.role,
     status: user.status,
-    project_ids: user.project_ids.map((id) => id.toString()),
+    // Defensive: users seeded/created before project_ids existed won't have the
+    // field — treat a missing value as "no project access".
+    project_ids: (user.project_ids ?? []).map((id) => id.toString()),
     created_at: user.created_at,
     updated_at: user.updated_at,
   }

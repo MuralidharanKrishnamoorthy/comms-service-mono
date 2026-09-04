@@ -7,6 +7,13 @@ import type { User } from '../models/user.js'
 // startup and does nothing if any user already exists.
 export async function seedAdmin(): Promise<void> {
   const db = getDb()
+
+  // Backfill: any user created before project_ids existed (e.g. an earlier
+  // seeded admin) gets an empty array, so list/access code can rely on it.
+  await db
+    .collection<User>('users')
+    .updateMany({ project_ids: { $exists: false } }, { $set: { project_ids: [] } })
+
   const count = await db.collection<User>('users').estimatedDocumentCount()
   if (count > 0) return
 
