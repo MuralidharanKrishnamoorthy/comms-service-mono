@@ -5,7 +5,7 @@ import type { MessageLog, MessageStatus } from '../types'
 import { ApiBanner, Drawer, Dropdown, PageHeader, StatusBadge } from '../components/ui'
 import { formatDate } from '../util'
 
-const STATUSES: MessageStatus[] = ['pending', 'sent', 'delivered', 'failed']
+const STATUSES: MessageStatus[] = ['sent', 'failed']
 const CHANNELS = ['email', 'sms', 'push']
 
 export function Logs(_props: { path?: string }) {

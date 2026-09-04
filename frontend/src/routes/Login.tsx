@@ -106,7 +106,7 @@ export function Login() {
         <div class="gaming-login-card">
           <div class="gaming-login-head">
             <h1 class="gaming-login-title">Notifyr</h1>
-            <p class="gaming-login-tagline">Sign in to the admin console</p>
+            <p class="gaming-login-tagline">Sign in to your dashboard</p>
           </div>
 
           <form onSubmit={submit} class="gaming-login-form">
