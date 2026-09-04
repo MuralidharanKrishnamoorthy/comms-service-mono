@@ -5,21 +5,24 @@ export const createCategorySchema = z.object({
   name: z.string().min(1).max(60),
 })
 
-// Global — shared across every project, not scoped to one. A template from
-// any project can be attached to any category.
-export interface Category {
-  _id?: ObjectId
-  name: string
+// A template attached to a category. template_key is kept alongside
+// template_id because every other template route addresses templates by key,
+// not id — but template_id is the real foreign key, and is what lets a
+// template delete cascade-clean its category attachments (see templatesRoute
+// DELETE) even though it looks it up by key elsewhere.
+export interface AttachedTemplate {
+  project_id: ObjectId
+  template_id: ObjectId
+  template_key: string
   created_at: Date
 }
 
-// Join collection — a template can belong to any number of categories and a
-// category can hold any number of templates. Keyed by template_key (not
-// template _id) to match how the rest of the API already addresses templates.
-export interface TemplateCategoryLink {
+// Global — shared across every project, not scoped to one. A template from
+// any project can be attached to any category. No separate join collection —
+// attachments live directly on the category document.
+export interface Category {
   _id?: ObjectId
-  project_id: ObjectId
-  category_id: ObjectId
-  template_key: string
+  name: string
+  templates: AttachedTemplate[]
   created_at: Date
 }

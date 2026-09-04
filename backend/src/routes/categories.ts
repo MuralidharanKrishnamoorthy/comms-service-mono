@@ -1,14 +1,14 @@
 import { Hono } from 'hono'
 import { ObjectId, MongoServerError } from 'mongodb'
 import { getDb } from '../db.js'
-import { createCategorySchema, type Category, type TemplateCategoryLink } from '../models/category.js'
+import { createCategorySchema, type Category } from '../models/category.js'
 import type { Template } from '../models/template.js'
 import type { AuthEnv } from '../middleware/dashboardAuth.js'
 import { hasProjectAccess } from '../lib/access.js'
 
 // Mounted at /categories — global, not scoped to a project. A template from
-// any project can be attached to any category; the join collection carries
-// the project_id since template_key is only unique within a project.
+// any project can be attached to any category; each attachment carries its
+// own project_id since template_key is only unique within a project.
 // Category metadata is visible to any authenticated user, but the endpoints
 // that read/modify a specific project's templates enforce project access.
 export const categoriesRoute = new Hono<AuthEnv>()
@@ -24,6 +24,7 @@ categoriesRoute.post('/', async (c) => {
   const db = getDb()
   const category: Category = {
     name: parsed.data.name.trim(),
+    templates: [],
     created_at: new Date(),
   }
 
@@ -40,18 +41,8 @@ categoriesRoute.post('/', async (c) => {
 
 // List all categories with a live count of attached templates (across every project)
 categoriesRoute.get('/', async (c) => {
-  const db = getDb()
-  const categories = await db.collection<Category>('categories').find({}).sort({ name: 1 }).toArray()
-
-  const counts = await db
-    .collection<TemplateCategoryLink>('template_categories')
-    .aggregate<{ _id: ObjectId; count: number }>([{ $group: { _id: '$category_id', count: { $sum: 1 } } }])
-    .toArray()
-  const countByCategory = new Map(counts.map((row) => [row._id.toString(), row.count]))
-
-  return c.json(
-    categories.map((cat) => ({ ...cat, template_count: countByCategory.get(cat._id!.toString()) ?? 0 }))
-  )
+  const categories = await getDb().collection<Category>('categories').find({}).sort({ name: 1 }).toArray()
+  return c.json(categories.map((cat) => ({ ...cat, template_count: cat.templates.length })))
 })
 
 // All templates in one project, each flagged whether it's attached to this category
@@ -67,14 +58,13 @@ categoriesRoute.get('/:categoryId/projects/:projectId/templates', async (c) => {
   const category = await db.collection<Category>('categories').findOne({ _id: new ObjectId(categoryId) })
   if (!category) return c.json({ error: 'Category not found' }, 404)
 
-  const [templates, links] = await Promise.all([
-    db.collection<Template>('templates').find({ project_id: new ObjectId(projectId) }).toArray(),
-    db
-      .collection<TemplateCategoryLink>('template_categories')
-      .find({ category_id: new ObjectId(categoryId), project_id: new ObjectId(projectId) })
-      .toArray(),
-  ])
-  const attachedKeys = new Set(links.map((l) => l.template_key))
+  const templates = await db
+    .collection<Template>('templates')
+    .find({ project_id: new ObjectId(projectId) })
+    .toArray()
+  const attachedKeys = new Set(
+    category.templates.filter((t) => t.project_id.equals(projectId)).map((t) => t.template_key)
+  )
 
   return c.json({
     category,
@@ -100,18 +90,23 @@ categoriesRoute.post('/:categoryId/projects/:projectId/templates/:templateKey', 
   if (!category) return c.json({ error: 'Category not found' }, 404)
   if (!template) return c.json({ error: `Template "${templateKey}" not found` }, 404)
 
-  const link: TemplateCategoryLink = {
-    category_id: new ObjectId(categoryId),
-    project_id: new ObjectId(projectId),
-    template_key: templateKey,
-    created_at: new Date(),
-  }
-
-  try {
-    await db.collection<TemplateCategoryLink>('template_categories').insertOne(link)
-  } catch (err) {
-    // Already attached — treat as a no-op success rather than an error.
-    if (!(err instanceof MongoServerError && err.code === 11000)) throw err
+  const alreadyAttached = category.templates.some(
+    (t) => t.project_id.equals(projectId) && t.template_key === templateKey
+  )
+  if (!alreadyAttached) {
+    await db.collection<Category>('categories').updateOne(
+      { _id: new ObjectId(categoryId) },
+      {
+        $push: {
+          templates: {
+            project_id: new ObjectId(projectId),
+            template_id: template._id!,
+            template_key: templateKey,
+            created_at: new Date(),
+          },
+        },
+      }
+    )
   }
 
   return c.json({ attached: true }, 201)
@@ -127,12 +122,12 @@ categoriesRoute.delete('/:categoryId/projects/:projectId/templates/:templateKey'
   if (!(await hasProjectAccess(c.get('user'), projectId)))
     return c.json({ error: 'You do not have access to this project' }, 403)
 
-  const db = getDb()
-  await db.collection<TemplateCategoryLink>('template_categories').deleteOne({
-    category_id: new ObjectId(categoryId),
-    project_id: new ObjectId(projectId),
-    template_key: templateKey,
-  })
+  await getDb()
+    .collection<Category>('categories')
+    .updateOne(
+      { _id: new ObjectId(categoryId) },
+      { $pull: { templates: { project_id: new ObjectId(projectId), template_key: templateKey } } }
+    )
 
   return c.json({ attached: false })
 })

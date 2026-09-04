@@ -14,6 +14,7 @@ export interface AuthUser {
   name: string
   role: Role
   status: 'active' | 'disabled'
+  project_ids: ObjectId[]
 }
 
 export type AuthEnv = { Variables: { user: AuthUser } }
@@ -49,6 +50,7 @@ export const dashboardAuth = createMiddleware<AuthEnv>(async (c, next) => {
     name: user.name,
     role: user.role,
     status: user.status,
+    project_ids: user.project_ids,
   })
   await next()
 })

@@ -23,13 +23,12 @@ projectsRoute.post('/', async (c) => {
     return c.json({ error: 'Invalid input', details: parsed.error.flatten() }, 400)
   }
 
-  const { plaintext, prefix, hash } = generateApiKey()
+  const { plaintext, hash } = generateApiKey()
 
   const project: Project = {
     name: parsed.data.name,
     api_key: plaintext,
     api_key_hash: hash,
-    api_key_prefix: prefix,
     channels_allowed: ['email', 'sms', 'push'],
     status: 'active',
     created_at: new Date(),
@@ -50,7 +49,7 @@ projectsRoute.post('/', async (c) => {
 })
 
 // List projects — for the projects table. Never returns the key or its hash,
-// only the prefix, so a casual glance at the list can't leak a usable key.
+// so a casual glance at the list can't leak a usable key.
 // Scoped: a non-admin sees only the projects they're a member of.
 projectsRoute.get('/', async (c) => {
   const db = getDb()

@@ -20,6 +20,7 @@ export async function seedAdmin(): Promise<void> {
     password_hash: hashPassword(password),
     role: 'admin',
     status: 'active',
+    project_ids: [],
     created_at: now,
     updated_at: now,
   })

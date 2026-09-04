@@ -9,6 +9,7 @@ import {
 } from '../models/template.js'
 import type { AuthEnv } from '../middleware/dashboardAuth.js'
 import { hasProjectAccess } from '../lib/access.js'
+import type { Category } from '../models/category.js'
 
 // Mounted at /projects/:projectId/templates — behind dashboardAuth, and each
 // handler additionally checks the caller may access this specific project.
@@ -100,6 +101,9 @@ templatesRoute.get('/:templateKey', async (c) => {
   if (!projectId || !ObjectId.isValid(projectId)) {
     return c.json({ error: 'Invalid projectId' }, 400)
   }
+  if (!(await hasProjectAccess(c.get('user'), projectId))) {
+    return c.json({ error: 'You do not have access to this project' }, 403)
+  }
 
   const db = getDb()
   const template = await db.collection<Template>('templates').findOne({
@@ -159,4 +163,36 @@ templatesRoute.patch('/:templateKey/:channel', async (c) => {
   )
 
   return c.json({ ...template, channels: { ...template.channels, [channel]: updatedChannel } })
+})
+
+// Delete a template. Cascades: pulls it out of every category's `templates`
+// array, matched by template_id — the real foreign key, immune to a
+// template_key ever being reused. No such reuse is possible today (template_key
+// is immutable), but the cascade means a category can never end up pointing at
+// a template that no longer exists.
+templatesRoute.delete('/:templateKey', async (c) => {
+  const projectId = c.req.param('projectId')
+  const templateKey = c.req.param('templateKey')
+  if (!projectId || !ObjectId.isValid(projectId)) {
+    return c.json({ error: 'Invalid projectId' }, 400)
+  }
+  if (!(await hasProjectAccess(c.get('user'), projectId))) {
+    return c.json({ error: 'You do not have access to this project' }, 403)
+  }
+
+  const db = getDb()
+  const template = await db.collection<Template>('templates').findOne({
+    project_id: new ObjectId(projectId),
+    template_key: templateKey,
+  })
+  if (!template) {
+    return c.json({ error: 'Template not found' }, 404)
+  }
+
+  await db.collection<Template>('templates').deleteOne({ _id: template._id })
+  await db
+    .collection<Category>('categories')
+    .updateMany({ 'templates.template_id': template._id }, { $pull: { templates: { template_id: template._id } } })
+
+  return c.json({ deleted: true })
 })

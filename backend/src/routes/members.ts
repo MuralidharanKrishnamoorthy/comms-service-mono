@@ -1,14 +1,14 @@
 import { Hono } from 'hono'
-import { ObjectId, MongoServerError } from 'mongodb'
+import { ObjectId } from 'mongodb'
 import { getDb } from '../db.js'
 import { dashboardAuth, requireAdmin, type AuthEnv } from '../middleware/dashboardAuth.js'
-import type { ProjectMember } from '../models/membership.js'
 import type { User } from '../models/user.js'
 import type { Project } from '../models/project.js'
 
 // Mounted at /projects/:projectId/members — admin-only management of who can
 // access a single project. (User-centric membership editing also happens via
-// PATCH /users/:id with project_ids; this is the project-centric view.)
+// PATCH /users/:id with project_ids; this is the project-centric view.) Access
+// is stored on the user document itself (User.project_ids), not a join table.
 export const membersRoute = new Hono<AuthEnv>()
 membersRoute.use('*', dashboardAuth)
 membersRoute.use('*', requireAdmin)
@@ -18,15 +18,9 @@ membersRoute.get('/', async (c) => {
   const projectId = c.req.param('projectId')
   if (!projectId || !ObjectId.isValid(projectId)) return c.json({ error: 'Invalid projectId' }, 400)
 
-  const db = getDb()
-  const links = await db
-    .collection<ProjectMember>('project_members')
-    .find({ project_id: new ObjectId(projectId) })
-    .toArray()
-  const userIds = links.map((l) => l.user_id)
-  const users = await db
+  const users = await getDb()
     .collection<User>('users')
-    .find({ _id: { $in: userIds } })
+    .find({ project_ids: new ObjectId(projectId) })
     .toArray()
 
   return c.json(
@@ -56,18 +50,10 @@ membersRoute.post('/', async (c) => {
     return c.json({ error: 'Admins already have access to every project' }, 400)
   }
 
-  const link: ProjectMember = {
-    user_id: new ObjectId(userId),
-    project_id: new ObjectId(projectId),
-    role_in_project: 'editor',
-    created_at: new Date(),
-  }
-  try {
-    await db.collection<ProjectMember>('project_members').insertOne(link)
-  } catch (err) {
-    // Already a member — idempotent success.
-    if (!(err instanceof MongoServerError && err.code === 11000)) throw err
-  }
+  await db
+    .collection<User>('users')
+    .updateOne({ _id: user._id }, { $addToSet: { project_ids: new ObjectId(projectId) }, $set: { updated_at: new Date() } })
+
   return c.json({ added: true }, 201)
 })
 
@@ -79,8 +65,11 @@ membersRoute.delete('/:userId', async (c) => {
   if (!userId || !ObjectId.isValid(userId)) return c.json({ error: 'Invalid userId' }, 400)
 
   await getDb()
-    .collection<ProjectMember>('project_members')
-    .deleteOne({ project_id: new ObjectId(projectId), user_id: new ObjectId(userId) })
+    .collection<User>('users')
+    .updateOne(
+      { _id: new ObjectId(userId) },
+      { $pull: { project_ids: new ObjectId(projectId) }, $set: { updated_at: new Date() } }
+    )
 
   return c.json({ removed: true })
 })

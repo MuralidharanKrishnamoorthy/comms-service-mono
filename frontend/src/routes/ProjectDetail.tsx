@@ -100,16 +100,12 @@ export function ProjectDetail({ id }: { path?: string; id?: string }) {
 
               <dt>API key</dt>
               <dd>
-                {project.api_key ? (
-                  <div class="key-reveal">
-                    <span class="mono">{project.api_key}</span>
-                    <button class="btn btn-sm" onClick={copyKey}>
-                      {copied ? '✓ Copied' : 'Copy'}
-                    </button>
-                  </div>
-                ) : (
-                  <span class="mono">{project.api_key_prefix}…</span>
-                )}
+                <div class="key-reveal">
+                  <span class="mono">{project.api_key}</span>
+                  <button class="btn btn-sm" onClick={copyKey}>
+                    {copied ? '✓ Copied' : 'Copy'}
+                  </button>
+                </div>
               </dd>
 
               <dt>Channels</dt>

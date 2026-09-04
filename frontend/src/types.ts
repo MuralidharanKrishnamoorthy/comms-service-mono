@@ -9,7 +9,6 @@ export interface Project {
   // Only present when fetched via getProject() (the detail endpoint) — the
   // list endpoint never includes it.
   api_key?: string
-  api_key_prefix: string
   channels_allowed: Channel[]
   status: string
   created_at: string

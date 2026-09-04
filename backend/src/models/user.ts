@@ -2,7 +2,7 @@ import { z } from 'zod'
 import type { ObjectId } from 'mongodb'
 
 // admin is unrestricted; developer / ba / tester are all scoped IDENTICALLY to
-// their project_members rows. Authorization logic must branch only on
+// their project_ids. Authorization logic must branch only on
 // `role === 'admin'` vs everything else — never a per-role allowlist. The three
 // non-admin roles differ only in their UI label/badge.
 export const ROLES = ['admin', 'developer', 'ba', 'tester'] as const
@@ -15,6 +15,9 @@ export interface User {
   password_hash: string // NEVER returned by any API
   role: Role
   status: 'active' | 'disabled'
+  // Projects this user may access. Always empty for admins — their access is
+  // implicit and unrestricted, enforced by branching on role, not this field.
+  project_ids: ObjectId[]
   created_at: Date
   updated_at: Date
 }

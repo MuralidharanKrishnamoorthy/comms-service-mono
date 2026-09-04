@@ -15,7 +15,6 @@ export interface Project {
   // authenticating incoming requests — this field exists only for display.
   api_key: string
   api_key_hash: string
-  api_key_prefix: string
   channels_allowed: Channel[]
   status: 'active' | 'disabled'
   created_at: Date

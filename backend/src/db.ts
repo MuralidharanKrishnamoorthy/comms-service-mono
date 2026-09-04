@@ -22,16 +22,11 @@ async function ensureIndexes(database: Db): Promise<void> {
   await database.collection('message_logs').createIndex({ status: 1, next_retry_at: 1 })
   await database.collection('message_logs').createIndex({ provider_message_id: 1 })
   await database.collection('categories').createIndex({ name: 1 }, { unique: true })
-  await database.collection('template_categories').createIndex(
-    { category_id: 1, project_id: 1, template_key: 1 },
-    { unique: true }
-  )
-  // Dashboard authorization: users + project membership.
+  // Lets a template delete cascade-clean its category attachments in one indexed query.
+  await database.collection('categories').createIndex({ 'templates.template_id': 1 })
+  // Dashboard authorization: users + the projects each may access.
   await database.collection('users').createIndex({ email: 1 }, { unique: true })
-  await database
-    .collection('project_members')
-    .createIndex({ user_id: 1, project_id: 1 }, { unique: true })
-  await database.collection('project_members').createIndex({ user_id: 1 })
+  await database.collection('users').createIndex({ project_ids: 1 })
 }
 
 export async function connectDb(): Promise<Db> {
