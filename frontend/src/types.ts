@@ -6,20 +6,41 @@ export type MessageStatus = 'pending' | 'sent' | 'delivered' | 'failed'
 export interface Project {
   _id: string
   name: string
-  // Only present when fetched via getProject() (the detail endpoint) — the
-  // list endpoint never includes it.
-  api_key?: string
   channels_allowed: Channel[]
   status: string
+  // Count of active API keys visible to the current user (their own, or all
+  // for an admin). Only present on the list endpoint.
+  active_key_count?: number
   created_at: string
   updated_at: string
 }
 
-// Returned exactly once by POST /projects.
+// One API key's metadata as returned by GET .../api-keys — never the value.
+export interface ApiKeyRow {
+  _id: string
+  name: string
+  prefix: string
+  created_by: string
+  created_by_name: string
+  created_at: string
+  status: 'active' | 'revoked'
+}
+
+// The one-time creation response — includes the plaintext value.
+export interface CreatedApiKey {
+  id: string
+  name: string
+  prefix: string
+  created_at: string
+  status: 'active' | 'revoked'
+  value: string
+}
+
+// POST /projects no longer mints a key — keys are created from the project's
+// API Keys panel instead.
 export interface CreatedProject {
   id: string
   name: string
-  api_key: string
 }
 
 export interface ChannelContent {

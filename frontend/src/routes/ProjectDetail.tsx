@@ -4,6 +4,7 @@ import { useStore } from '../store'
 import { ApiError, API_BASE, getProject } from '../api'
 import type { Project } from '../types'
 import { ApiBanner, BackLink, ChannelChips, StatusBadge } from '../components/ui'
+import { ApiKeysPanel } from '../components/ApiKeysPanel'
 import { formatDate } from '../util'
 
 export function ProjectDetail({ id }: { path?: string; id?: string }) {
@@ -12,7 +13,6 @@ export function ProjectDetail({ id }: { path?: string; id?: string }) {
   const [loading, setLoading] = useState(true)
   const [unreachable, setUnreachable] = useState(false)
   const [notFound, setNotFound] = useState(false)
-  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     if (!id) return
@@ -45,17 +45,6 @@ export function ProjectDetail({ id }: { path?: string; id?: string }) {
   const goTo = (path: string) => {
     if (id) setSelectedProjectId(id)
     route(path)
-  }
-
-  const copyKey = async () => {
-    if (!project?.api_key) return
-    try {
-      await navigator.clipboard.writeText(project.api_key)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    } catch {
-      setCopied(false)
-    }
   }
 
   return (
@@ -98,16 +87,6 @@ export function ProjectDetail({ id }: { path?: string; id?: string }) {
               <dt>Name</dt>
               <dd>{project.name}</dd>
 
-              <dt>API key</dt>
-              <dd>
-                <div class="key-reveal">
-                  <span class="mono">{project.api_key}</span>
-                  <button class="btn btn-sm" onClick={copyKey}>
-                    {copied ? '✓ Copied' : 'Copy'}
-                  </button>
-                </div>
-              </dd>
-
               <dt>Channels</dt>
               <dd>
                 <ChannelChips channels={project.channels_allowed} />
@@ -134,6 +113,8 @@ export function ProjectDetail({ id }: { path?: string; id?: string }) {
               </button>
             </div>
           </div>
+
+          {id && <ApiKeysPanel projectId={id} />}
         </>
       )}
     </div>

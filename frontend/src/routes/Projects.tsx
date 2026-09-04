@@ -33,6 +33,7 @@ export function Projects(_props: { path?: string }) {
             <tr>
               <th>Name</th>
               <th>Channels</th>
+              <th>API keys</th>
               <th>Status</th>
               <th>Created</th>
             </tr>
@@ -40,15 +41,15 @@ export function Projects(_props: { path?: string }) {
           <tbody>
             {projectsLoading ? (
               <tr class="state-row">
-                <td colSpan={4}>Loading…</td>
+                <td colSpan={5}>Loading…</td>
               </tr>
             ) : projectsUnreachable ? (
               <tr class="state-row">
-                <td colSpan={4}>Couldn't load projects.</td>
+                <td colSpan={5}>Couldn't load projects.</td>
               </tr>
             ) : projects.length === 0 ? (
               <tr class="state-row">
-                <td colSpan={4}>No projects yet.</td>
+                <td colSpan={5}>No projects yet.</td>
               </tr>
             ) : (
               projects.map((p) => (
@@ -60,6 +61,9 @@ export function Projects(_props: { path?: string }) {
                   <td class="cell-primary">{p.name}</td>
                   <td>
                     <ChannelChips channels={p.channels_allowed} />
+                  </td>
+                  <td class="cell-muted">
+                    {p.active_key_count ?? 0} active
                   </td>
                   <td>
                     <StatusBadge status={p.status} />

@@ -1,7 +1,9 @@
 import type {
   ApiErrorDetails,
+  ApiKeyRow,
   AuthUser,
   Category,
+  CreatedApiKey,
   CreatedProject,
   ManagedUser,
   MessageLog,
@@ -147,6 +149,26 @@ export const createProject = (name: string) =>
     method: 'POST',
     body: JSON.stringify({ name }),
   })
+
+// ---------- API keys (per-project, multi-owner) ----------
+export const listApiKeys = (projectId: string) =>
+  request<ApiKeyRow[]>(`/projects/${projectId}/api-keys`)
+
+export const createApiKey = (projectId: string, name: string) =>
+  request<CreatedApiKey>(`/projects/${projectId}/api-keys`, {
+    method: 'POST',
+    body: JSON.stringify({ name }),
+  })
+
+// Fetched fresh each time the owner clicks Copy — never cached client-side.
+export const revealApiKey = (projectId: string, keyId: string) =>
+  request<{ value: string }>(`/projects/${projectId}/api-keys/${keyId}/reveal`)
+
+export const revokeApiKey = (projectId: string, keyId: string) =>
+  request<{ id: string; status: 'revoked' }>(
+    `/projects/${projectId}/api-keys/${keyId}/revoke`,
+    { method: 'POST' }
+  )
 
 // ---------- Templates ----------
 export const listTemplates = (projectId: string) =>
