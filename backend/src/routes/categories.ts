@@ -192,86 +192,10 @@ categoriesRoute.get('/:categoryId', async (c) => {
   })
 })
 
-// All templates in one project, each flagged whether it's attached to this category
-categoriesRoute.get('/:categoryId/projects/:projectId/templates', async (c) => {
-  const categoryId = c.req.param('categoryId')
-  const projectId = c.req.param('projectId')
-  if (!ObjectId.isValid(categoryId)) return c.json({ error: 'Invalid categoryId' }, 400)
-  if (!ObjectId.isValid(projectId)) return c.json({ error: 'Invalid projectId' }, 400)
-  if (!(await hasProjectAccess(c.get('user'), projectId)))
-    return c.json({ error: 'You do not have access to this project' }, 403)
-
-  const db = getDb()
-  const category = await db.collection<Category>('categories').findOne({ _id: new ObjectId(categoryId) })
-  if (!category) return c.json({ error: 'Category not found' }, 404)
-
-  const templates = await db
-    .collection<Template>('templates')
-    .find({ project_id: new ObjectId(projectId) })
-    .toArray()
-  const attachedKeys = new Set(
-    category.templates.filter((t) => t.project_id.equals(projectId)).map((t) => t.template_key)
-  )
-
-  return c.json({
-    category,
-    templates: templates.map((t) => ({ ...t, attached: attachedKeys.has(t.template_key) })),
-  })
-})
-
-// Attach a template (from a specific project) to an EXISTING category. Adding
-// templates at creation time goes through POST / instead; both resolve the
-// attachment the same way, via resolveAttachments.
-categoriesRoute.post('/:categoryId/projects/:projectId/templates/:templateKey', async (c) => {
-  const categoryId = c.req.param('categoryId')
-  const projectId = c.req.param('projectId')
-  const templateKey = c.req.param('templateKey')
-  if (!ObjectId.isValid(categoryId)) return c.json({ error: 'Invalid categoryId' }, 400)
-  if (!ObjectId.isValid(projectId)) return c.json({ error: 'Invalid projectId' }, 400)
-
-  const db = getDb()
-  const category = await db.collection<Category>('categories').findOne({ _id: new ObjectId(categoryId) })
-  if (!category) return c.json({ error: 'Category not found' }, 404)
-
-  const resolved = await resolveAttachments(c.get('user'), [
-    { project_id: projectId, template_key: templateKey },
-  ])
-  if (!resolved.ok) return c.json({ error: resolved.error }, resolved.status)
-
-  const alreadyAttached = category.templates.some(
-    (t) => t.project_id.equals(projectId) && t.template_key === templateKey
-  )
-  if (!alreadyAttached) {
-    await db
-      .collection<Category>('categories')
-      .updateOne({ _id: category._id }, { $push: { templates: resolved.attachments[0] } })
-  }
-
-  return c.json({ attached: true }, 201)
-})
-
-// Detach a template (from a specific project) from a category
-categoriesRoute.delete('/:categoryId/projects/:projectId/templates/:templateKey', async (c) => {
-  const categoryId = c.req.param('categoryId')
-  const projectId = c.req.param('projectId')
-  const templateKey = c.req.param('templateKey')
-  if (!ObjectId.isValid(categoryId)) return c.json({ error: 'Invalid categoryId' }, 400)
-  if (!ObjectId.isValid(projectId)) return c.json({ error: 'Invalid projectId' }, 400)
-  if (!(await hasProjectAccess(c.get('user'), projectId)))
-    return c.json({ error: 'You do not have access to this project' }, 403)
-
-  await getDb()
-    .collection<Category>('categories')
-    .updateOne(
-      { _id: new ObjectId(categoryId) },
-      { $pull: { templates: { project_id: new ObjectId(projectId), template_key: templateKey } } }
-    )
-
-  return c.json({ attached: false })
-})
-
-// Rename a category. Attachments are left exactly as they are — they're keyed
-// by ids, not by the category's name.
+// Edit a category: rename it, replace its attachments, or both, in one write.
+// `templates` is the COMPLETE set the caller wants — anything absent from it
+// is detached, which is how unchecking a box in the edit dialog removes a
+// template.
 categoriesRoute.patch('/:categoryId', async (c) => {
   const categoryId = c.req.param('categoryId')
   if (!ObjectId.isValid(categoryId)) return c.json({ error: 'Invalid categoryId' }, 400)
@@ -285,21 +209,34 @@ categoriesRoute.patch('/:categoryId', async (c) => {
   const db = getDb()
   const category = await db.collection<Category>('categories').findOne({ _id: new ObjectId(categoryId) })
   if (!category) return c.json({ error: 'Category not found' }, 404)
-  if (!canModifyCategory(c.get('user'), category)) {
+
+  const user = c.get('user')
+  // Access to the category as it stands today...
+  if (!canModifyCategory(user, category)) {
     return c.json({ error: 'This category holds templates from projects you cannot access' }, 403)
   }
 
-  const name = parsed.data.name.trim().toUpperCase()
+  const set: Partial<Category> = {}
+  if (parsed.data.name !== undefined) set.name = parsed.data.name.trim().toUpperCase()
+
+  // ...and, separately, to every project in the set being written.
+  if (parsed.data.templates !== undefined) {
+    const resolved = await resolveAttachments(user, parsed.data.templates)
+    if (!resolved.ok) return c.json({ error: resolved.error }, resolved.status)
+    set.templates = resolved.attachments
+  }
+
   try {
-    await db.collection<Category>('categories').updateOne({ _id: category._id }, { $set: { name } })
+    await db.collection<Category>('categories').updateOne({ _id: category._id }, { $set: set })
   } catch (err) {
     if (err instanceof MongoServerError && err.code === 11000) {
-      return c.json({ error: `A category named "${name}" already exists` }, 409)
+      return c.json({ error: `A category named "${set.name}" already exists` }, 409)
     }
     throw err
   }
 
-  return c.json({ ...category, name, template_count: category.templates.length })
+  const updated = { ...category, ...set }
+  return c.json({ ...updated, template_count: updated.templates.length })
 })
 
 // Delete a category. Only the grouping goes away — the templates it pointed at

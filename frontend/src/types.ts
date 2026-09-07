@@ -67,10 +67,6 @@ export interface Template {
 
 // A template flagged with whether it's attached to a specific category —
 // only present on the per-category template listing.
-export interface TemplateWithAttached extends Template {
-  attached: boolean
-}
-
 // One template attached to a category, hydrated with the details needed to
 // show it without knowing which project you're looking at.
 export interface AttachedTemplateRow {

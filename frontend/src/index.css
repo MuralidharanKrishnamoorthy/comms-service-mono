@@ -24,7 +24,11 @@
   font-family: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
   color: var(--ink);
   background: var(--canvas);
-  font-size: 14px;
+  /* The whole type scale is in rem against this one value, so the app's text
+     grows with the viewport instead of sitting at a fixed 14px everywhere:
+     ~15.5px on a 1366 laptop, ~17.5px at 1920, capped at 18px so an ultrawide
+     doesn't turn into large print. Floor of 15px keeps small laptops legible. */
+  font-size: clamp(15px, 0.361vw + 10.6px, 18px);
   line-height: 1.45;
   -webkit-font-smoothing: antialiased;
 }
@@ -58,7 +62,7 @@ a {
 /* ---------- Buttons ---------- */
 button {
   font-family: inherit;
-  font-size: 14px;
+  font-size: 1rem;
   cursor: pointer;
 }
 
@@ -107,7 +111,7 @@ button {
 
 .btn-sm {
   padding: 5px 10px;
-  font-size: 13px;
+  font-size: 0.9286rem;
 }
 
 .btn-danger {
@@ -119,7 +123,7 @@ button {
 label {
   display: block;
   font-weight: 500;
-  font-size: 13px;
+  font-size: 0.9286rem;
   color: var(--ink);
   margin-bottom: 6px;
 }
@@ -127,7 +131,7 @@ label {
 .hint {
   font-weight: 400;
   color: var(--ink-faint);
-  font-size: 12px;
+  font-size: 0.8571rem;
 }
 
 input[type='text'],
@@ -136,7 +140,7 @@ select,
 textarea {
   width: 100%;
   font-family: inherit;
-  font-size: 14px;
+  font-size: 1rem;
   color: var(--ink);
   background: var(--surface);
   border: 1px solid var(--border-strong);
@@ -201,7 +205,7 @@ textarea.invalid,
   gap: 8px;
   width: 100%;
   font-family: inherit;
-  font-size: 14px;
+  font-size: 1rem;
   color: var(--ink);
   background: var(--surface);
   border: 1px solid var(--border-strong);
@@ -258,7 +262,7 @@ textarea.invalid,
   border: none;
   border-radius: 7px;
   padding: 8px 10px;
-  font-size: 14px;
+  font-size: 1rem;
   color: var(--ink);
   cursor: pointer;
 }
@@ -302,7 +306,7 @@ textarea.invalid,
   border: none;
   background: transparent;
   padding: 4px 10px;
-  font-size: 12px;
+  font-size: 0.8571rem;
   font-weight: 600;
   color: var(--ink-muted);
   border-radius: 4px;
@@ -353,7 +357,7 @@ textarea.invalid,
   border-radius: 5px;
   background: transparent;
   color: var(--ink);
-  font-size: 13px;
+  font-size: 0.9286rem;
   line-height: 1;
   cursor: pointer;
 }
@@ -383,7 +387,7 @@ textarea.invalid,
   text-align: center;
   vertical-align: middle;
   border-radius: 5px;
-  font-size: 13px;
+  font-size: 0.9286rem;
   font-weight: 700;
   color: var(--ink);
   cursor: pointer;
@@ -395,7 +399,7 @@ textarea.invalid,
 }
 
 .rte-color-picker-hl {
-  font-size: 11px;
+  font-size: 0.7857rem;
 }
 
 .rte-color-picker input[type='color'] {
@@ -424,7 +428,7 @@ textarea.invalid,
   padding: 12px 14px;
   border: none;
   border-radius: 0;
-  font-size: 13px;
+  font-size: 0.9286rem;
   line-height: 1.6;
 }
 
@@ -438,7 +442,7 @@ textarea.invalid,
   min-height: 180px;
   max-height: 420px;
   overflow-y: auto;
-  font-size: 14px;
+  font-size: 1rem;
   line-height: 1.6;
 }
 
@@ -481,7 +485,7 @@ textarea.invalid,
   border-radius: 50%;
   background: rgba(21, 24, 29, 0.72);
   color: #fff;
-  font-size: 16px;
+  font-size: 1.1429rem;
   line-height: 1;
   cursor: pointer;
 }
@@ -504,7 +508,7 @@ textarea.invalid,
 
 .field-error {
   color: var(--danger);
-  font-size: 12px;
+  font-size: 0.8571rem;
   margin-top: 5px;
 }
 
@@ -522,7 +526,7 @@ textarea.invalid,
   display: inline-flex;
   align-items: center;
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 11px;
+  font-size: 0.7857rem;
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.03em;
@@ -543,7 +547,7 @@ textarea.invalid,
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 12px;
+  font-size: 0.8571rem;
   font-weight: 600;
   padding: 2px 9px;
   border-radius: 999px;
@@ -590,7 +594,7 @@ table {
 
 thead th {
   text-align: left;
-  font-size: 11px;
+  font-size: 0.7857rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -625,7 +629,7 @@ tr.clickable:hover td {
 
 .cell-faint {
   color: var(--ink-faint);
-  font-size: 13px;
+  font-size: 0.9286rem;
 }
 
 .cell-primary {
@@ -633,7 +637,7 @@ tr.clickable:hover td {
 }
 
 .cell-secondary {
-  font-size: 12px;
+  font-size: 0.8571rem;
   color: var(--ink-faint);
   margin-top: 2px;
 }
@@ -707,7 +711,7 @@ tr.clickable:hover td {
 }
 
 .cat-card-name {
-  font-size: 15.5px;
+  font-size: 1.1071rem;
   font-weight: 600;
   color: var(--ink);
   /* Wraps instead of truncating — a category name is the one thing on this
@@ -723,7 +727,7 @@ tr.clickable:hover td {
 
 .cat-card-count {
   margin-top: 3px;
-  font-size: 12.5px;
+  font-size: 0.8929rem;
   font-weight: 500;
   color: var(--ink-faint);
 }
@@ -744,6 +748,43 @@ tr.clickable:hover td {
 .cat-card-arrow-btn svg {
   width: 15px;
   height: 15px;
+}
+
+/* Round icon-only button for row/table actions (e.g. deleting an API key).
+   Neutral until hovered, so a destructive action still has to be aimed at. */
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--ink-muted);
+  vertical-align: middle;
+  transition: background 0.14s ease, color 0.14s ease, border-color 0.14s ease;
+}
+
+.icon-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.icon-btn:hover:not(:disabled) {
+  background: var(--surface-alt);
+  color: var(--ink);
+}
+
+.icon-btn.danger:hover:not(:disabled) {
+  background: var(--danger-soft);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.icon-btn:disabled {
+  opacity: 0.5;
 }
 
 /* Rename / delete on a category card. Same round shape as the arrow button,
@@ -798,7 +839,7 @@ tr.clickable:hover td {
   color: var(--ink-muted);
   padding: 5px 12px;
   border-radius: 999px;
-  font-size: 12px;
+  font-size: 0.8571rem;
   font-weight: 600;
   cursor: pointer;
 }
@@ -833,7 +874,7 @@ tr.clickable:hover td {
   color: var(--accent-ink);
   border-radius: var(--r-sm);
   padding: 11px 14px;
-  font-size: 13px;
+  font-size: 0.9286rem;
 }
 
 .banner-error {
@@ -845,7 +886,7 @@ tr.clickable:hover td {
   color: var(--danger);
   border-radius: var(--r-sm);
   padding: 11px 14px;
-  font-size: 13px;
+  font-size: 0.9286rem;
   font-weight: 500;
   margin-bottom: 18px;
 }

@@ -10,7 +10,7 @@ import {
   revokeApiKey,
 } from '../api'
 import type { ApiKeyRow, CreatedApiKey } from '../types'
-import { ApiBanner, ConfirmDialog, Dropdown, Modal, StatusBadge } from './ui'
+import { ApiBanner, ConfirmDialog, Dropdown, Modal, StatusBadge, TrashIcon } from './ui'
 import { formatDate } from '../util'
 
 export function ApiKeysPanel({ projectId }: { projectId: string }) {
@@ -183,12 +183,15 @@ export function ApiKeysPanel({ projectId }: { projectId: string }) {
                     )}
                     {canDelete(k) && (
                       <button
-                        class="btn btn-sm btn-danger"
+                        type="button"
+                        class="icon-btn danger"
                         style={{ marginLeft: 8 }}
                         disabled={busyId === k._id}
+                        title="Delete this key"
+                        aria-label={`Delete ${k.name}`}
                         onClick={() => setPendingDelete(k)}
                       >
-                        Delete
+                        <TrashIcon />
                       </button>
                     )}
                   </td>

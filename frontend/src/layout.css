@@ -24,7 +24,7 @@
   gap: 10px;
   padding: 18px 20px;
   font-weight: 600;
-  font-size: 15px;
+  font-size: 1.0714rem;
   color: #fff;
   border-bottom: 1px solid rgba(255, 255, 255, 0.07);
 }
@@ -44,7 +44,7 @@
   border-radius: var(--r-sm);
   color: var(--sidebar-ink);
   font-weight: 500;
-  font-size: 14px;
+  font-size: 1rem;
   transition: background 0.12s, color 0.12s;
 }
 
@@ -99,7 +99,7 @@
 }
 
 .page-title {
-  font-size: 22px;
+  font-size: 1.5714rem;
   font-weight: 700;
   margin: 0;
 }
@@ -107,7 +107,7 @@
 .page-subtitle {
   color: var(--ink-muted);
   margin: 4px 0 0;
-  font-size: 13px;
+  font-size: 0.9286rem;
 }
 
 .page-actions {
@@ -166,7 +166,7 @@
 
 .modal-head h3 {
   margin: 0;
-  font-size: 16px;
+  font-size: 1.1429rem;
   font-weight: 600;
 }
 
@@ -182,7 +182,7 @@
 .btn-icon {
   border: none;
   background: transparent;
-  font-size: 22px;
+  font-size: 1.5714rem;
   line-height: 1;
   color: var(--ink-faint);
   padding: 2px 6px;
@@ -224,7 +224,7 @@
 
 .key-reveal .mono {
   flex: 1;
-  font-size: 13px;
+  font-size: 0.9286rem;
   word-break: break-all;
 }
 
@@ -237,7 +237,7 @@
 
 .dl dt {
   color: var(--ink-faint);
-  font-size: 12px;
+  font-size: 0.8571rem;
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -254,7 +254,7 @@
   border-radius: var(--r-sm);
   padding: 12px;
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 12px;
+  font-size: 0.8571rem;
   white-space: pre-wrap;
   word-break: break-word;
   margin: 0;
@@ -276,7 +276,7 @@
 }
 
 .stat-label {
-  font-size: 12px;
+  font-size: 0.8571rem;
   color: var(--ink-faint);
   font-weight: 500;
   text-transform: uppercase;
@@ -284,19 +284,19 @@
 }
 
 .stat-value {
-  font-size: 30px;
+  font-size: 2.1429rem;
   font-weight: 700;
   margin-top: 6px;
 }
 
 .stat-hint {
-  font-size: 12px;
+  font-size: 0.8571rem;
   color: var(--ink-faint);
   margin-top: 4px;
 }
 
 .section-title {
-  font-size: 15px;
+  font-size: 1.0714rem;
   font-weight: 600;
   margin: 24px 0 12px;
   display: flex;
@@ -341,7 +341,7 @@
 }
 
 .char-counter {
-  font-size: 12px;
+  font-size: 0.8571rem;
   color: var(--ink-faint);
   margin-top: 5px;
 }
@@ -359,7 +359,7 @@
 }
 
 .var-list .label-inline {
-  font-size: 12px;
+  font-size: 0.8571rem;
   color: var(--ink-faint);
 }
 
@@ -374,7 +374,7 @@
   background: var(--surface-alt);
   padding: 9px 12px;
   font-weight: 600;
-  font-size: 13px;
+  font-size: 0.9286rem;
   border-bottom: 1px solid var(--border);
 }
 
@@ -382,7 +382,7 @@
   padding: 14px;
   background: #fff;
   min-height: 60px;
-  font-size: 14px;
+  font-size: 1rem;
 }
 
 .preview-html img {
@@ -395,14 +395,14 @@
   padding: 14px;
   background: #fff;
   white-space: pre-wrap;
-  font-size: 14px;
+  font-size: 1rem;
 }
 
 .version-badge {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: 0.8571rem;
   color: var(--ink-muted);
   background: var(--surface-alt);
   border: 1px solid var(--border);
@@ -429,7 +429,7 @@
 
 .copied-flash {
   color: var(--success);
-  font-size: 12px;
+  font-size: 0.8571rem;
   font-weight: 600;
 }
 
@@ -438,7 +438,7 @@
   align-items: center;
   gap: 7px;
   color: var(--ink-muted);
-  font-size: 15px;
+  font-size: 1.0714rem;
   font-weight: 600;
   margin-bottom: 16px;
 }
@@ -460,7 +460,7 @@
 
 .subtle {
   color: var(--ink-muted);
-  font-size: 13px;
+  font-size: 0.9286rem;
 }
 
 /* ---------- Auth: splash + login ---------- */
@@ -469,7 +469,7 @@
   display: grid;
   place-items: center;
   color: var(--ink-faint);
-  font-size: 14px;
+  font-size: 1rem;
 }
 
 /* ---------- Gaming-themed login ---------- */
@@ -559,7 +559,7 @@
 
 .gaming-login-title {
   margin: 0 0 8px;
-  font-size: 30px;
+  font-size: 2.1429rem;
   font-weight: 700;
   background: linear-gradient(90deg, var(--accent), #e0a63e, var(--accent-ink));
   -webkit-background-clip: text;
@@ -572,7 +572,7 @@
 .gaming-login-tagline {
   margin: 0;
   color: rgba(255, 255, 255, 0.85);
-  font-size: 14px;
+  font-size: 1rem;
   animation: gaming-pulse 2.6s ease-in-out infinite;
 }
 
@@ -607,7 +607,7 @@
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
   color: #fff;
-  font-size: 14px;
+  font-size: 1rem;
   transition: border-color 0.15s ease;
 }
 
@@ -650,7 +650,7 @@
   background: var(--accent);
   color: #fff;
   font-weight: 600;
-  font-size: 14px;
+  font-size: 1rem;
   cursor: pointer;
   box-shadow: 0 10px 30px rgba(196, 132, 31, 0.25);
   transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
@@ -699,7 +699,7 @@
   border-radius: 50%;
   background: var(--accent-soft);
   color: var(--accent-ink);
-  font-size: 12px;
+  font-size: 0.8571rem;
   font-weight: 700;
   flex-shrink: 0;
 }
@@ -714,7 +714,7 @@
 
 .topbar-user-name {
   font-weight: 600;
-  font-size: 13px;
+  font-size: 0.9286rem;
   color: var(--ink);
 }
 
@@ -725,7 +725,7 @@
   border: 1px solid transparent;
   background: transparent;
   color: var(--ink-muted);
-  font-size: 13px;
+  font-size: 0.9286rem;
   font-weight: 500;
   padding: 7px 12px;
   border-radius: var(--r-sm);
@@ -748,7 +748,7 @@
 .role-pill {
   display: inline-flex;
   align-items: center;
-  font-size: 11px;
+  font-size: 0.7857rem;
   font-weight: 600;
   padding: 2px 9px;
   border-radius: 999px;
@@ -797,7 +797,7 @@
   gap: 8px;
   margin: 0;
   font-weight: 500;
-  font-size: 13px;
+  font-size: 0.9286rem;
   color: var(--ink);
 }
 
@@ -807,7 +807,7 @@
 
 /* ---------- Confirm dialog ---------- */
 .confirm-message {
-  font-size: 14px;
+  font-size: 1rem;
   line-height: 1.55;
   color: var(--ink);
   margin-bottom: 4px;

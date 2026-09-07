@@ -11,7 +11,6 @@ import type {
   Project,
   Role,
   Template,
-  TemplateWithAttached,
 } from './types'
 
 export const API_BASE: string =
@@ -214,10 +213,15 @@ export const createCategory = (
     body: JSON.stringify({ name, templates }),
   })
 
-export const updateCategory = (categoryId: string, name: string) =>
+// `templates`, when given, replaces the category's whole attachment set — so
+// pass the complete list you want, not just additions.
+export const updateCategory = (
+  categoryId: string,
+  patch: { name?: string; templates?: { project_id: string; template_key: string }[] }
+) =>
   request<Category>(`/categories/${categoryId}`, {
     method: 'PATCH',
-    body: JSON.stringify({ name }),
+    body: JSON.stringify(patch),
   })
 
 export const deleteCategory = (categoryId: string) =>
@@ -229,21 +233,6 @@ export const deleteCategory = (categoryId: string) =>
 // can see — no project needs picking first.
 export const getCategory = (categoryId: string) =>
   request<CategoryWithAttached>(`/categories/${categoryId}`)
-
-export const getCategoryTemplates = (categoryId: string, projectId: string) =>
-  request<{ category: Category; templates: TemplateWithAttached[] }>(
-    `/categories/${categoryId}/projects/${projectId}/templates`
-  )
-
-export const attachTemplateToCategory = (categoryId: string, projectId: string, templateKey: string) =>
-  request<{ attached: true }>(`/categories/${categoryId}/projects/${projectId}/templates/${templateKey}`, {
-    method: 'POST',
-  })
-
-export const detachTemplateFromCategory = (categoryId: string, projectId: string, templateKey: string) =>
-  request<{ attached: false }>(`/categories/${categoryId}/projects/${projectId}/templates/${templateKey}`, {
-    method: 'DELETE',
-  })
 
 // ---------- Logs ----------
 export const listLogs = (

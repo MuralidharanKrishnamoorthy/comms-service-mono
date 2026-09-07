@@ -5,12 +5,21 @@ import {
   API_BASE,
   createCategory,
   deleteCategory,
+  getCategory,
   listCategories,
   listTemplates,
   updateCategory,
 } from '../api'
 import type { Category, Template } from '../types'
-import { ApiBanner, ConfirmDialog, Dropdown, Modal, PageHeader } from '../components/ui'
+import {
+  ApiBanner,
+  ConfirmDialog,
+  Dropdown,
+  Modal,
+  PageHeader,
+  PencilIcon,
+  TrashIcon,
+} from '../components/ui'
 import { useStore } from '../store'
 
 // Deterministic accent per category, so the same name always gets the same
@@ -30,30 +39,13 @@ function FolderIcon() {
   )
 }
 
-function PencilIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M12 20h9" />
-      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
-    </svg>
-  )
-}
-
-function TrashIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6" />
-      <path d="M10 11v6M14 11v6" />
-    </svg>
-  )
-}
 
 export function Categories(_props: { path?: string }) {
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [unreachable, setUnreachable] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
-  const [renaming, setRenaming] = useState<Category | null>(null)
+  const [editing, setEditing] = useState<Category | null>(null)
   const [deleting, setDeleting] = useState<Category | null>(null)
   const [busy, setBusy] = useState(false)
   const [banner, setBanner] = useState<string | null>(null)
@@ -131,11 +123,11 @@ export function Categories(_props: { path?: string }) {
                 <button
                   type="button"
                   class="cat-card-action"
-                  title="Rename category"
-                  aria-label={`Rename ${cat.name}`}
+                  title="Edit category"
+                  aria-label={`Edit ${cat.name}`}
                   onClick={(e) => {
                     e.stopPropagation()
-                    setRenaming(cat)
+                    setEditing(cat)
                   }}
                 >
                   <PencilIcon />
@@ -168,12 +160,12 @@ export function Categories(_props: { path?: string }) {
         />
       )}
 
-      {renaming && (
-        <RenameCategoryModal
-          category={renaming}
-          onClose={() => setRenaming(null)}
-          onRenamed={() => {
-            setRenaming(null)
+      {editing && (
+        <EditCategoryModal
+          category={editing}
+          onClose={() => setEditing(null)}
+          onSaved={() => {
+            setEditing(null)
             load()
           }}
         />
@@ -207,19 +199,94 @@ export function Categories(_props: { path?: string }) {
   )
 }
 
-function RenameCategoryModal({
+type Pick = { project_id: string; template_key: string }
+const samePick = (a: Pick, b: Pick) =>
+  a.project_id === b.project_id && a.template_key === b.template_key
+
+/**
+ * The one place a category is edited: its name and its templates together.
+ *
+ * `selection` holds the COMPLETE desired attachment set across every project,
+ * seeded from what's currently attached. Switching the project dropdown only
+ * changes which candidates are listed — it never touches selections made for
+ * another project, which is what lets one save span several projects.
+ */
+function EditCategoryModal({
   category,
   onClose,
-  onRenamed,
+  onSaved,
 }: {
   category: Category
   onClose: () => void
-  onRenamed: () => void
+  onSaved: () => void
 }) {
+  const { projects, selectedProjectId } = useStore()
   const [name, setName] = useState(category.name)
+  const [projectId, setProjectId] = useState(selectedProjectId ?? projects[0]?._id ?? '')
+  const [selection, setSelection] = useState<Pick[]>([])
+  const [candidates, setCandidates] = useState<Template[]>([])
+  const [loadingAttached, setLoadingAttached] = useState(true)
+  const [loadingCandidates, setLoadingCandidates] = useState(false)
   const [nameError, setNameError] = useState<string | null>(null)
   const [banner, setBanner] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+
+  // Seed the selection from what's attached right now, across all projects.
+  useEffect(() => {
+    let cancelled = false
+    getCategory(category._id)
+      .then((data) => {
+        if (cancelled) return
+        setSelection(
+          data.attached.map((a) => ({ project_id: a.project_id, template_key: a.template_key }))
+        )
+        if (data.hidden_count > 0) {
+          setBanner(
+            `${data.hidden_count} template(s) in projects you can't access are attached and can't be edited here.`
+          )
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setBanner('Could not load the current templates.')
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingAttached(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [category._id])
+
+  useEffect(() => {
+    if (!projectId) {
+      setCandidates([])
+      return
+    }
+    let cancelled = false
+    setLoadingCandidates(true)
+    listTemplates(projectId)
+      .then((rows) => {
+        if (!cancelled) setCandidates(rows)
+      })
+      .catch(() => {
+        if (!cancelled) setCandidates([])
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingCandidates(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [projectId])
+
+  const toggle = (templateKey: string) => {
+    const entry = { project_id: projectId, template_key: templateKey }
+    setSelection((rows) =>
+      rows.some((r) => samePick(r, entry))
+        ? rows.filter((r) => !samePick(r, entry))
+        : [...rows, entry]
+    )
+  }
 
   const submit = async (e: Event) => {
     e.preventDefault()
@@ -229,15 +296,11 @@ function RenameCategoryModal({
       setNameError('Category name is required.')
       return
     }
-    if (trimmed === category.name) {
-      onClose()
-      return
-    }
     setNameError(null)
     setSubmitting(true)
     try {
-      await updateCategory(category._id, trimmed)
-      onRenamed()
+      await updateCategory(category._id, { name: trimmed, templates: selection })
+      onSaved()
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.isNetwork) setBanner(`Can't reach the API at ${API_BASE} — is the backend running?`)
@@ -251,16 +314,18 @@ function RenameCategoryModal({
     }
   }
 
+  const pickedHere = selection.filter((s) => s.project_id === projectId).length
+
   return (
-    <Modal title="Rename category" onClose={onClose}>
+    <Modal title="Edit category" onClose={onClose} width={520}>
       {banner && <div class="banner-error">{banner}</div>}
       <form onSubmit={submit}>
         <div class="field">
-          <label for="cat-rename">
+          <label for="cat-edit-name">
             Category name <span class="hint">(stored in capitals)</span>
           </label>
           <input
-            id="cat-rename"
+            id="cat-edit-name"
             type="text"
             value={name}
             autoFocus
@@ -272,9 +337,54 @@ function RenameCategoryModal({
           />
           {nameError && <div class="field-error">{nameError}</div>}
         </div>
+
+        <div class="field">
+          <label>
+            Templates{' '}
+            <span class="hint">
+              {selection.length} selected{pickedHere !== selection.length && ` · ${pickedHere} here`}
+            </span>
+          </label>
+          {projects.length === 0 ? (
+            <p class="subtle" style={{ margin: 0 }}>No projects exist yet.</p>
+          ) : (
+            <Dropdown
+              value={projectId}
+              onChange={setProjectId}
+              options={projects.map((p) => ({ value: p._id, label: p.name }))}
+              placeholder="Choose a project"
+            />
+          )}
+        </div>
+
+        {projectId && (
+          <div class="field">
+            {loadingAttached || loadingCandidates ? (
+              <p class="subtle" style={{ margin: 0 }}>Loading templates…</p>
+            ) : candidates.length === 0 ? (
+              <p class="subtle" style={{ margin: 0 }}>This project has no templates yet.</p>
+            ) : (
+              <div class="checkbox-list">
+                {candidates.map((t) => (
+                  <label key={t._id} class="checkbox-row">
+                    <input
+                      type="checkbox"
+                      checked={selection.some((s) =>
+                        samePick(s, { project_id: projectId, template_key: t.template_key })
+                      )}
+                      onChange={() => toggle(t.template_key)}
+                    />
+                    {t.name} <span class="mono subtle">{t.template_key}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         <div class="form-actions">
-          <button type="submit" class="btn btn-primary" disabled={submitting}>
-            {submitting ? 'Saving…' : 'Save name'}
+          <button type="submit" class="btn btn-primary" disabled={submitting || loadingAttached}>
+            {submitting ? 'Saving…' : 'Save changes'}
           </button>
           <button type="button" class="btn" onClick={onClose} disabled={submitting}>
             Cancel
