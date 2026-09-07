@@ -125,6 +125,9 @@ export interface AuthUser {
   email: string
   name: string
   role: Role
+  // true while still on the admin-issued temporary password; drives the
+  // Profile page's informational notice. Cleared by POST /auth/me/password.
+  mustChangePassword: boolean
 }
 
 // A user as managed on the admin "Users & Access" screen (GET /users).

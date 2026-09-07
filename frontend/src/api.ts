@@ -251,6 +251,14 @@ export const logout = () => request<{ ok: true }>('/auth/logout', { method: 'POS
 
 export const getMe = () => request<AuthUser>('/auth/me')
 
+// Self-service password change for the logged-in user. No currentPassword; the
+// server derives the target from the session, never the body.
+export const changeMyPassword = (newPassword: string) =>
+  request<{ ok: true }>('/auth/me/password', {
+    method: 'POST',
+    body: JSON.stringify({ newPassword }),
+  })
+
 // ---------- Users & access (admin only) ----------
 export interface CreateUserBody {
   name: string

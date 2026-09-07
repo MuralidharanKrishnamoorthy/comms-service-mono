@@ -912,3 +912,91 @@
   top: auto;
   bottom: calc(100% + 6px);
 }
+
+/* ---------- Topbar user button (opens Profile) ---------- */
+.topbar-user-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: transparent;
+  border: none;
+  padding: 4px 8px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+}
+.topbar-user-btn:hover {
+  background: var(--surface-alt);
+}
+
+/* ---------- Profile page ---------- */
+.profile-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.profile-avatar {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.profile-name {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.profile-email {
+  color: var(--ink-muted);
+  font-size: 13px;
+  margin-top: 2px;
+}
+
+/* ---------- Password rule checklist ---------- */
+.pw-rules {
+  list-style: none;
+  margin: 4px 0 8px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pw-rule {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--ink-faint);
+}
+
+.pw-rule.ok {
+  color: var(--success);
+}
+
+.pw-rule-mark {
+  width: 16px;
+  text-align: center;
+  font-weight: 700;
+}
+
+/* ---------- Success banner (mirrors .banner-error) ---------- */
+.banner-success {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #e6f2ec;
+  border: 1px solid #c9e6d7;
+  color: var(--success);
+  border-radius: var(--r-sm);
+  padding: 11px 14px;
+  font-size: 13px;
+  font-weight: 500;
+}

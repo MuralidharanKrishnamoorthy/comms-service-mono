@@ -1,5 +1,5 @@
 import type { ComponentChildren, FunctionComponent } from 'preact'
-import { Router, route } from 'preact-router'
+import { Router, route, getCurrentUrl } from 'preact-router'
 import { Link as MatchLink } from 'preact-router/match'
 import { StoreProvider } from './store'
 import { useAuth } from './auth'
@@ -13,6 +13,7 @@ import { TemplateNew } from './routes/TemplateNew'
 import { TemplateEdit } from './routes/TemplateEdit'
 import { Logs } from './routes/Logs'
 import { UsersAccess, RoleBadge } from './routes/UsersAccess'
+import { Profile } from './routes/Profile'
 
 // preact-router's own Link type omits `href` under this preact version's JSX
 // typings, so re-type the reactive match-Link with the props we actually use.
@@ -83,15 +84,20 @@ function initials(name: string): string {
 function Topbar() {
   const { user, logout } = useAuth()
   if (!user) return null
+  // Open Profile, remembering the current page so it can offer a "Back to …" link.
+  const openProfile = () => route(`/profile?from=${encodeURIComponent(getCurrentUrl())}`)
+
   return (
     <header class="topbar">
       <div />
       <div class="topbar-user">
-        <div class="topbar-avatar">{initials(user.name)}</div>
-        <div class="topbar-user-meta">
-          <span class="topbar-user-name">{user.name}</span>
-          <RoleBadge role={user.role} />
-        </div>
+        <button class="topbar-user-btn" onClick={openProfile} title="Your profile">
+          <div class="topbar-avatar">{initials(user.name)}</div>
+          <div class="topbar-user-meta">
+            <span class="topbar-user-name">{user.name}</span>
+            <RoleBadge role={user.role} />
+          </div>
+        </button>
         <button class="topbar-logout" onClick={() => void logout()}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
@@ -125,6 +131,7 @@ function Shell() {
               <TemplateEdit path="/templates/:templateKey" />
               <Logs path="/logs" />
               <UsersAccess path="/admin/users" />
+              <Profile path="/profile" />
               <NotFound default />
             </Router>
           </main>
