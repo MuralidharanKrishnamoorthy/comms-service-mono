@@ -783,7 +783,9 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  max-height: 200px;
+  /* In em so it tracks the viewport-scaled type; ~9 rows before scrolling,
+     which lands the cut between rows rather than through one. */
+  max-height: 17em;
   overflow-y: auto;
   border: 1px solid var(--border);
   border-radius: var(--r-sm);
