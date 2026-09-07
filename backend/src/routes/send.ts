@@ -6,10 +6,10 @@ import { validateVariables, MissingVariablesError } from '../lib/template.js'
 import { createMessageLog, markSent, markFailedAndScheduleRetry } from '../lib/messageLog.js'
 import { dispatchSend } from '../lib/dispatch.js'
 import type { Project } from '../models/project.js'
-import type { Template } from '../models/template.js'
+import { normalizeTemplateKey, type Template } from '../models/template.js'
 
 const sendSchema = z.object({
-  template_key: z.string().min(1),
+  template_key: z.string().min(1).transform(normalizeTemplateKey),
   channel: z.enum(['email', 'sms', 'push']),
   recipient: z.string().min(1),
   data: z.record(z.string(), z.unknown()).default({}),

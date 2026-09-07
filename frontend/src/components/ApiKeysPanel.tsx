@@ -4,12 +4,13 @@ import {
   ApiError,
   API_BASE,
   createApiKey,
+  deleteApiKey,
   listApiKeys,
   revealApiKey,
   revokeApiKey,
 } from '../api'
 import type { ApiKeyRow, CreatedApiKey } from '../types'
-import { ApiBanner, ConfirmDialog, Dropdown, Modal, StatusBadge } from './ui'
+import { ApiBanner, ConfirmDialog, Dropdown, Modal, StatusBadge, TrashIcon } from './ui'
 import { formatDate } from '../util'
 
 export function ApiKeysPanel({ projectId }: { projectId: string }) {
@@ -23,6 +24,8 @@ export function ApiKeysPanel({ projectId }: { projectId: string }) {
   const [busyId, setBusyId] = useState<string | null>(null)
   // The key awaiting revoke confirmation (drives the in-app dialog).
   const [pendingRevoke, setPendingRevoke] = useState<ApiKeyRow | null>(null)
+  // Likewise for delete, which is a separate, harder action than revoke.
+  const [pendingDelete, setPendingDelete] = useState<ApiKeyRow | null>(null)
 
   const refresh = () => {
     setLoading(true)
@@ -41,6 +44,9 @@ export function ApiKeysPanel({ projectId }: { projectId: string }) {
   const isOwner = (k: ApiKeyRow) => user?.id === k.created_by
   const canRevoke = (k: ApiKeyRow) =>
     k.status === 'active' && (user?.role === 'admin' || isOwner(k))
+  // Any key can be deleted, active ones included — the confirmation carries
+  // the warning rather than the button being withheld.
+  const canDelete = (k: ApiKeyRow) => user?.role === 'admin' || isOwner(k)
 
   // Copy: fetch the value FRESH each click (owner-only endpoint); never cache it
   // beyond the clipboard write.
@@ -55,6 +61,21 @@ export function ApiKeysPanel({ projectId }: { projectId: string }) {
     } catch (err) {
       if (err instanceof ApiError) setBanner(err.message)
       else setBanner('Could not copy the key.')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const doDelete = async (k: ApiKeyRow) => {
+    setBanner(null)
+    setBusyId(k._id)
+    try {
+      await deleteApiKey(projectId, k._id)
+      setPendingDelete(null)
+      refresh()
+    } catch (err) {
+      setBanner(err instanceof ApiError ? err.message : 'Could not delete the key.')
+      setPendingDelete(null)
     } finally {
       setBusyId(null)
     }
@@ -159,6 +180,19 @@ export function ApiKeysPanel({ projectId }: { projectId: string }) {
                         Revoke
                       </button>
                     )}
+                    {canDelete(k) && (
+                      <button
+                        type="button"
+                        class="icon-btn danger"
+                        style={{ marginLeft: 8 }}
+                        disabled={busyId === k._id}
+                        title="Delete this key"
+                        aria-label={`Delete ${k.name}`}
+                        onClick={() => setPendingDelete(k)}
+                      >
+                        <TrashIcon />
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))
@@ -191,6 +225,33 @@ export function ApiKeysPanel({ projectId }: { projectId: string }) {
           }
           onConfirm={() => doRevoke(pendingRevoke)}
           onCancel={() => setPendingRevoke(null)}
+        />
+      )}
+
+      {pendingDelete && (
+        <ConfirmDialog
+          title="Delete API key"
+          danger
+          confirmLabel="Delete key"
+          busy={busyId === pendingDelete._id}
+          message={
+            pendingDelete.status === 'active' ? (
+              <>
+                Permanently delete <strong>{pendingDelete.name}</strong>? This key is{' '}
+                <strong>still active</strong> — any app using it stops working
+                immediately, and the key can't be recovered. Revoke instead if you only
+                want to disable it.
+              </>
+            ) : (
+              <>
+                Permanently delete <strong>{pendingDelete.name}</strong>? It's already{' '}
+                {pendingDelete.status}, so nothing is using it — this clears it from the
+                list, and the record of it goes with it.
+              </>
+            )
+          }
+          onConfirm={() => doDelete(pendingDelete)}
+          onCancel={() => setPendingDelete(null)}
         />
       )}
     </div>
