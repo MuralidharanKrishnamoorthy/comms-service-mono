@@ -200,10 +200,10 @@ apiKeysRoute.post('/:keyId/revoke', async (c) => {
 // DELETE /projects/:projectId/api-keys/:keyId — creator OR admin. Removes the
 // row outright, unlike revoke which keeps it as a record that the key existed.
 //
-// An ACTIVE key can't be deleted in one step: revoke it first. Deleting a live
-// key would leave the app using it failing with a bare "Invalid API key",
-// whereas revoking first gives that caller the accurate "has been revoked" —
-// and makes destroying a working credential two deliberate actions, not one.
+// Any key can be deleted, active included (product decision). Deleting a live
+// key takes effect immediately and whatever is using it starts failing with
+// "Invalid API key" rather than the clearer "has been revoked" — the dashboard
+// spells that out in its confirmation instead of the API refusing.
 apiKeysRoute.delete('/:keyId', async (c) => {
   const projectId = c.req.param('projectId')
   const keyId = c.req.param('keyId')
@@ -222,10 +222,6 @@ apiKeysRoute.delete('/:keyId', async (c) => {
 
   if (user.role !== 'admin' && !key.created_by.equals(user._id)) {
     return c.json({ error: 'Only the key owner or an admin can delete this key' }, 403)
-  }
-
-  if (effectiveStatus(key) === 'active') {
-    return c.json({ error: 'Revoke this key before deleting it' }, 409)
   }
 
   await db.collection<ApiKey>('api_keys').deleteOne({ _id: key._id })

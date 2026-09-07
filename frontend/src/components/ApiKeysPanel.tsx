@@ -44,10 +44,9 @@ export function ApiKeysPanel({ projectId }: { projectId: string }) {
   const isOwner = (k: ApiKeyRow) => user?.id === k.created_by
   const canRevoke = (k: ApiKeyRow) =>
     k.status === 'active' && (user?.role === 'admin' || isOwner(k))
-  // Delete is cleanup for keys already out of service — the API rejects it
-  // while a key is still active, so don't offer it there either.
-  const canDelete = (k: ApiKeyRow) =>
-    k.status !== 'active' && (user?.role === 'admin' || isOwner(k))
+  // Any key can be deleted, active ones included — the confirmation carries
+  // the warning rather than the button being withheld.
+  const canDelete = (k: ApiKeyRow) => user?.role === 'admin' || isOwner(k)
 
   // Copy: fetch the value FRESH each click (owner-only endpoint); never cache it
   // beyond the clipboard write.
@@ -236,11 +235,20 @@ export function ApiKeysPanel({ projectId }: { projectId: string }) {
           confirmLabel="Delete key"
           busy={busyId === pendingDelete._id}
           message={
-            <>
-              Permanently delete <strong>{pendingDelete.name}</strong>? It's already{' '}
-              {pendingDelete.status}, so nothing is using it — this only clears it from the
-              list, and the record of it goes with it.
-            </>
+            pendingDelete.status === 'active' ? (
+              <>
+                Permanently delete <strong>{pendingDelete.name}</strong>? This key is{' '}
+                <strong>still active</strong> — any app using it stops working
+                immediately, and the key can't be recovered. Revoke instead if you only
+                want to disable it.
+              </>
+            ) : (
+              <>
+                Permanently delete <strong>{pendingDelete.name}</strong>? It's already{' '}
+                {pendingDelete.status}, so nothing is using it — this clears it from the
+                list, and the record of it goes with it.
+              </>
+            )
           }
           onConfirm={() => doDelete(pendingDelete)}
           onCancel={() => setPendingDelete(null)}
