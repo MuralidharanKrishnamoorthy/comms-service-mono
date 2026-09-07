@@ -44,6 +44,9 @@ export async function migrateApiKeys(): Promise<void> {
         value_encrypted: project.api_key ? encryptSecret(project.api_key) : null,
         created_by: owner._id!,
         status: project.status === 'active' ? 'active' : 'revoked',
+        // Predates the expiry feature — grandfathered in as never-expiring
+        // rather than retroactively expiring a key nobody rotated on purpose.
+        expires_at: null,
         created_at: project.created_at ?? now,
         updated_at: now,
       }

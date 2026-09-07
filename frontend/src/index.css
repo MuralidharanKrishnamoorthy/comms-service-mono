@@ -182,7 +182,8 @@ textarea:focus {
 }
 
 input.invalid,
-textarea.invalid {
+textarea.invalid,
+.dropdown.invalid .dropdown-trigger {
   border-color: var(--danger);
 }
 

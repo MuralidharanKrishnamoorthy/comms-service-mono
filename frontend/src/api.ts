@@ -154,10 +154,10 @@ export const createProject = (name: string) =>
 export const listApiKeys = (projectId: string) =>
   request<ApiKeyRow[]>(`/projects/${projectId}/api-keys`)
 
-export const createApiKey = (projectId: string, name: string) =>
+export const createApiKey = (projectId: string, name: string, expiresInDays?: number) =>
   request<CreatedApiKey>(`/projects/${projectId}/api-keys`, {
     method: 'POST',
-    body: JSON.stringify({ name }),
+    body: JSON.stringify({ name, expires_in_days: expiresInDays }),
   })
 
 // Fetched fresh each time the owner clicks Copy — never cached client-side.

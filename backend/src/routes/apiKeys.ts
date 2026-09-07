@@ -5,8 +5,19 @@ import { hasProjectAccess } from '../lib/access.js'
 import { generateApiKey, keyPrefix } from '../lib/apiKey.js'
 import { encryptSecret, decryptSecret } from '../lib/crypto.js'
 import type { AuthEnv } from '../middleware/dashboardAuth.js'
-import { createApiKeySchema, type ApiKey } from '../models/apiKey.js'
+import { createApiKeySchema, DEFAULT_EXPIRY_DAYS, type ApiKey } from '../models/apiKey.js'
 import type { User } from '../models/user.js'
+
+const DAY_MS = 24 * 60 * 60 * 1000
+
+// A key's real, current status — 'revoked' is a permanent human decision and
+// wins even past expiry; otherwise an active key past its expires_at reads as
+// 'expired' without ever touching the stored `status` field.
+function effectiveStatus(key: Pick<ApiKey, 'status' | 'expires_at'>): 'active' | 'revoked' | 'expired' {
+  if (key.status === 'revoked') return 'revoked'
+  if (key.expires_at && key.expires_at <= new Date()) return 'expired'
+  return 'active'
+}
 
 // Mounted at /projects/:projectId/api-keys — behind dashboardAuth. Per-project,
 // multi-owner keys: anyone with access to the project may create keys; each key
@@ -47,6 +58,7 @@ apiKeysRoute.post('/', async (c) => {
 
   const { plaintext, hash } = generateApiKey()
   const now = new Date()
+  const expiresInDays = parsed.data.expires_in_days ?? DEFAULT_EXPIRY_DAYS
   const key: ApiKey = {
     project_id: new ObjectId(projectId),
     name: parsed.data.name.trim(),
@@ -55,6 +67,7 @@ apiKeysRoute.post('/', async (c) => {
     value_encrypted: encryptSecret(plaintext),
     created_by: user._id,
     status: 'active',
+    expires_at: new Date(now.getTime() + expiresInDays * DAY_MS),
     created_at: now,
     updated_at: now,
   }
@@ -68,7 +81,8 @@ apiKeysRoute.post('/', async (c) => {
       name: key.name,
       prefix: key.key_prefix,
       created_at: key.created_at,
-      status: key.status,
+      expires_at: key.expires_at,
+      status: effectiveStatus(key),
       value: plaintext,
     },
     201
@@ -111,7 +125,8 @@ apiKeysRoute.get('/', async (c) => {
       created_by: k.created_by.toString(),
       created_by_name: nameById.get(k.created_by.toString()) ?? 'Unknown',
       created_at: k.created_at,
-      status: k.status,
+      expires_at: k.expires_at,
+      status: effectiveStatus(k),
     }))
   )
 })

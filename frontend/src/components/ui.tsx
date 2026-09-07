@@ -88,9 +88,9 @@ export function StatusBadge({ status }: { status: string }) {
   const cls =
     status === 'sent' || status === 'delivered' || status === 'active'
       ? 'badge-success'
-      : status === 'failed'
+      : status === 'failed' || status === 'revoked'
         ? 'badge-danger'
-        : status === 'pending'
+        : status === 'pending' || status === 'expired'
           ? 'badge-warning'
           : 'badge-neutral'
   return <span class={`badge ${cls}`}>{status}</span>

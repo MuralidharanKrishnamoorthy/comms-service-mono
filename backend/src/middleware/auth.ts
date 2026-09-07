@@ -36,6 +36,11 @@ export const authMiddleware = createMiddleware<{
   if (apiKey.status !== 'active') {
     return c.json({ error: 'API key has been revoked' }, 401)
   }
+  // Expiry is a separate check from status — a key can be "active" in the DB
+  // and still be past its expires_at, same as project.status below it.
+  if (apiKey.expires_at && apiKey.expires_at <= new Date()) {
+    return c.json({ error: 'API key has expired' }, 401)
+  }
 
   const project = await db.collection<Project>('projects').findOne({ _id: apiKey.project_id })
   if (!project) {

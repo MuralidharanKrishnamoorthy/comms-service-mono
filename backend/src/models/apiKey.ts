@@ -14,10 +14,23 @@ export interface ApiKey {
   value_encrypted: string | null
   created_by: ObjectId // user _id of the owner
   status: 'active' | 'revoked'
+  // Null means "never expires" (only reachable today via a pre-expiry-feature
+  // migrated key). Every key created through the API now always gets one.
+  expires_at: Date | null
   created_at: Date
   updated_at: Date
 }
 
+// Applied when a caller hits the API directly without naming an expiry. The
+// dashboard always sends one explicitly — it makes the user choose.
+export const DEFAULT_EXPIRY_DAYS = 90
+
 export const createApiKeySchema = z.object({
   name: z.string().min(1, 'A key name is required').max(80),
+  expires_in_days: z
+    .number()
+    .int()
+    .min(1, 'Must expire at least 1 day out')
+    .max(365, 'Cannot exceed 365 days')
+    .optional(),
 })

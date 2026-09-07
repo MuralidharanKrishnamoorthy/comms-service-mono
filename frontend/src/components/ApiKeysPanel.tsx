@@ -9,7 +9,7 @@ import {
   revokeApiKey,
 } from '../api'
 import type { ApiKeyRow, CreatedApiKey } from '../types'
-import { ApiBanner, Modal, StatusBadge } from './ui'
+import { ApiBanner, Dropdown, Modal, StatusBadge } from './ui'
 import { formatDate } from '../util'
 
 export function ApiKeysPanel({ projectId }: { projectId: string }) {
@@ -100,6 +100,7 @@ export function ApiKeysPanel({ projectId }: { projectId: string }) {
               <th>Key</th>
               <th>Created by</th>
               <th>Created</th>
+              <th>Expires</th>
               <th>Status</th>
               <th></th>
             </tr>
@@ -107,15 +108,15 @@ export function ApiKeysPanel({ projectId }: { projectId: string }) {
           <tbody>
             {loading ? (
               <tr class="state-row">
-                <td colSpan={6}>Loading…</td>
+                <td colSpan={7}>Loading…</td>
               </tr>
             ) : unreachable ? (
               <tr class="state-row">
-                <td colSpan={6}>Couldn't load keys.</td>
+                <td colSpan={7}>Couldn't load keys.</td>
               </tr>
             ) : keys.length === 0 ? (
               <tr class="state-row">
-                <td colSpan={6}>No keys yet — click Generate key to create one.</td>
+                <td colSpan={7}>No keys yet — click Generate key to create one.</td>
               </tr>
             ) : (
               keys.map((k) => (
@@ -129,6 +130,7 @@ export function ApiKeysPanel({ projectId }: { projectId: string }) {
                     {isOwner(k) && <span class="chip" style={{ marginLeft: 8 }}>you</span>}
                   </td>
                   <td class="cell-faint">{formatDate(k.created_at)}</td>
+                  <td class="cell-faint">{k.expires_at ? formatDate(k.expires_at) : 'Never'}</td>
                   <td>
                     <StatusBadge status={k.status} />
                   </td>
@@ -174,9 +176,20 @@ export function ApiKeysPanel({ projectId }: { projectId: string }) {
   )
 }
 
+const EXPIRY_CHOICES = [
+  { days: 30, label: '30 days' },
+  { days: 90, label: '90 days' },
+  { days: 180, label: '180 days' },
+  { days: 365, label: '365 days' },
+]
+
 function GenerateKeyModal({ projectId, onClose }: { projectId: string; onClose: () => void }) {
   const [name, setName] = useState('')
+  // '' = nothing picked yet. Deliberately no default: an expiry is a real
+  // decision, not something to inherit silently.
+  const [expiresInDays, setExpiresInDays] = useState('')
   const [nameError, setNameError] = useState<string | null>(null)
+  const [expiryError, setExpiryError] = useState<string | null>(null)
   const [banner, setBanner] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [created, setCreated] = useState<CreatedApiKey | null>(null)
@@ -186,14 +199,17 @@ function GenerateKeyModal({ projectId, onClose }: { projectId: string; onClose: 
     e.preventDefault()
     setBanner(null)
     const trimmed = name.trim()
-    if (!trimmed) {
-      setNameError('A key name is required.')
-      return
-    }
-    setNameError(null)
+    // Validate both fields together, so a user missing both sees both errors
+    // at once rather than fixing one and being told about the next.
+    const missingName = !trimmed
+    const missingExpiry = !expiresInDays
+    setNameError(missingName ? 'A key name is required.' : null)
+    setExpiryError(missingExpiry ? 'Choose when this key should expire.' : null)
+    if (missingName || missingExpiry) return
+
     setSubmitting(true)
     try {
-      const result = await createApiKey(projectId, trimmed)
+      const result = await createApiKey(projectId, trimmed, Number(expiresInDays))
       setCreated(result)
     } catch (err) {
       if (err instanceof ApiError) {
@@ -232,6 +248,13 @@ function GenerateKeyModal({ projectId, onClose }: { projectId: string; onClose: 
         <div class="note">
           You can copy this key again anytime from the API keys list on this page —
           but only you (its creator) can. Store it in your app's environment.
+          {created.expires_at && (
+            <>
+              {' '}
+              It expires on <strong>{formatDate(created.expires_at)}</strong> — generate a
+              replacement before then.
+            </>
+          )}
         </div>
         <div class="form-actions">
           <button class="btn btn-primary" onClick={onClose}>
@@ -257,9 +280,28 @@ function GenerateKeyModal({ projectId, onClose }: { projectId: string; onClose: 
             autoFocus
             placeholder="My key"
             class={nameError ? 'invalid' : ''}
-            onInput={(e) => setName((e.target as HTMLInputElement).value)}
+            onInput={(e) => {
+              setName((e.target as HTMLInputElement).value)
+              setNameError(null)
+            }}
           />
           {nameError && <div class="field-error">{nameError}</div>}
+        </div>
+        <div class="field">
+          {/* No `for` — Dropdown renders a button, not a labelable control
+              (same as the filter labels in Logs). */}
+          <label>Expires in</label>
+          <Dropdown
+            value={expiresInDays}
+            onChange={(v) => {
+              setExpiresInDays(v)
+              setExpiryError(null)
+            }}
+            placeholder="Choose an expiry"
+            class={expiryError ? 'invalid' : ''}
+            options={EXPIRY_CHOICES.map((c) => ({ value: String(c.days), label: c.label }))}
+          />
+          {expiryError && <div class="field-error">{expiryError}</div>}
         </div>
         <div class="form-actions">
           <button type="submit" class="btn btn-primary" disabled={submitting}>

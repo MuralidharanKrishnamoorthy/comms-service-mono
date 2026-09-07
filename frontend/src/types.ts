@@ -23,7 +23,8 @@ export interface ApiKeyRow {
   created_by: string
   created_by_name: string
   created_at: string
-  status: 'active' | 'revoked'
+  expires_at: string | null
+  status: 'active' | 'revoked' | 'expired'
 }
 
 // The one-time creation response — includes the plaintext value.
@@ -32,7 +33,8 @@ export interface CreatedApiKey {
   name: string
   prefix: string
   created_at: string
-  status: 'active' | 'revoked'
+  expires_at: string | null
+  status: 'active' | 'revoked' | 'expired'
   value: string
 }
 
