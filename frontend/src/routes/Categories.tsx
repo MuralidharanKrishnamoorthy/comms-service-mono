@@ -240,6 +240,15 @@ function EditCategoryModal({
         setSelection(
           data.attached.map((a) => ({ project_id: a.project_id, template_key: a.template_key }))
         )
+        // Open on a project this category actually uses, rather than whatever
+        // happens to be picked in the top bar — otherwise editing a category
+        // full of one project's templates opens on an unrelated project with
+        // nothing ticked. Runs once per category, so a manual switch after
+        // this sticks.
+        const attachedProjects = data.attached.map((a) => a.project_id)
+        if (attachedProjects.length > 0 && !attachedProjects.includes(projectId)) {
+          setProjectId(attachedProjects[0])
+        }
         if (data.hidden_count > 0) {
           setBanner(
             `${data.hidden_count} template(s) in projects you can't access are attached and can't be edited here.`
