@@ -197,10 +197,13 @@ export const updateChannel = (
 // ---------- Categories (global — not scoped to a project) ----------
 export const listCategories = () => request<Category[]>('/categories')
 
-export const createCategory = (name: string) =>
+export const createCategory = (
+  name: string,
+  templates?: { project_id: string; template_key: string }[]
+) =>
   request<Category>('/categories', {
     method: 'POST',
-    body: JSON.stringify({ name }),
+    body: JSON.stringify({ name, templates }),
   })
 
 export const getCategoryTemplates = (categoryId: string, projectId: string) =>

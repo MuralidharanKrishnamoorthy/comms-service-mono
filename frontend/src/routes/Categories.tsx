@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'preact/hooks'
 import { route } from 'preact-router'
-import { ApiError, API_BASE, createCategory, listCategories } from '../api'
-import type { Category } from '../types'
-import { ApiBanner, Modal, PageHeader } from '../components/ui'
+import { ApiError, API_BASE, createCategory, listCategories, listTemplates } from '../api'
+import type { Category, Template } from '../types'
+import { ApiBanner, Dropdown, Modal, PageHeader } from '../components/ui'
+import { useStore } from '../store'
 
 // Deterministic accent per category, so the same name always gets the same
 // color across reloads without persisting anything.
@@ -100,10 +101,48 @@ export function Categories(_props: { path?: string }) {
 }
 
 function CreateCategoryModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+  const { projects, selectedProjectId } = useStore()
   const [name, setName] = useState('')
+  // Pre-selected from the top bar, so the common case ("group templates from
+  // the project I'm already looking at") costs zero extra clicks.
+  const [projectId, setProjectId] = useState(selectedProjectId ?? projects[0]?._id ?? '')
+  const [templates, setTemplates] = useState<Template[]>([])
+  const [templatesLoading, setTemplatesLoading] = useState(false)
+  const [picked, setPicked] = useState<string[]>([])
   const [nameError, setNameError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [banner, setBanner] = useState<string | null>(null)
+
+  // Reload the template list whenever the chosen project changes. Selections
+  // are cleared with it — a template_key only means something within one
+  // project, so carrying them across would attach the wrong templates.
+  useEffect(() => {
+    if (!projectId) {
+      setTemplates([])
+      return
+    }
+    let cancelled = false
+    setTemplatesLoading(true)
+    setPicked([])
+    listTemplates(projectId)
+      .then((rows) => {
+        if (!cancelled) setTemplates(rows)
+      })
+      .catch(() => {
+        if (!cancelled) setTemplates([])
+      })
+      .finally(() => {
+        if (!cancelled) setTemplatesLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [projectId])
+
+  const toggle = (templateKey: string) =>
+    setPicked((keys) =>
+      keys.includes(templateKey) ? keys.filter((k) => k !== templateKey) : [...keys, templateKey]
+    )
 
   const submit = async (e: Event) => {
     e.preventDefault()
@@ -120,7 +159,10 @@ function CreateCategoryModal({ onClose, onCreated }: { onClose: () => void; onCr
     setNameError(null)
     setSubmitting(true)
     try {
-      await createCategory(trimmed)
+      await createCategory(
+        trimmed,
+        picked.map((template_key) => ({ project_id: projectId, template_key }))
+      )
       onCreated()
     } catch (err) {
       if (err instanceof ApiError) {
@@ -136,27 +178,76 @@ function CreateCategoryModal({ onClose, onCreated }: { onClose: () => void; onCr
   }
 
   return (
-    <Modal title="New category" onClose={onClose}>
+    <Modal title="New category" onClose={onClose} width={520}>
       {banner && <div class="banner-error">{banner}</div>}
       <form onSubmit={submit}>
         <div class="field">
           <label for="cat-name">
-            Category name <span class="hint">(1–60 characters)</span>
+            Category name <span class="hint">(stored in capitals)</span>
           </label>
           <input
             id="cat-name"
             type="text"
             value={name}
             autoFocus
-            placeholder="e.g. Marketing"
+            placeholder="e.g. MARKETING"
             class={nameError ? 'invalid' : ''}
-            onInput={(e) => setName((e.target as HTMLInputElement).value)}
+            // Upper-cased as you type, so the field shows exactly what gets
+            // stored. The server upper-cases too — this is only the preview.
+            onInput={(e) => {
+              setName((e.target as HTMLInputElement).value.toUpperCase())
+              setNameError(null)
+            }}
           />
           {nameError && <div class="field-error">{nameError}</div>}
         </div>
+
+        <div class="field">
+          <label>
+            Add templates <span class="hint">(optional — you can add more later)</span>
+          </label>
+          {projects.length === 0 ? (
+            <p class="subtle" style={{ margin: 0 }}>No projects exist yet.</p>
+          ) : (
+            <Dropdown
+              value={projectId}
+              onChange={setProjectId}
+              options={projects.map((p) => ({ value: p._id, label: p.name }))}
+              placeholder="Choose a project"
+            />
+          )}
+        </div>
+
+        {projectId && (
+          <div class="field">
+            {templatesLoading ? (
+              <p class="subtle" style={{ margin: 0 }}>Loading templates…</p>
+            ) : templates.length === 0 ? (
+              <p class="subtle" style={{ margin: 0 }}>This project has no templates yet.</p>
+            ) : (
+              <div class="checkbox-list">
+                {templates.map((t) => (
+                  <label key={t._id} class="checkbox-row">
+                    <input
+                      type="checkbox"
+                      checked={picked.includes(t.template_key)}
+                      onChange={() => toggle(t.template_key)}
+                    />
+                    {t.name} <span class="mono subtle">{t.template_key}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         <div class="form-actions">
           <button type="submit" class="btn btn-primary" disabled={submitting}>
-            {submitting ? 'Creating…' : 'Create category'}
+            {submitting
+              ? 'Creating…'
+              : picked.length > 0
+                ? `Create with ${picked.length} template${picked.length === 1 ? '' : 's'}`
+                : 'Create category'}
           </button>
           <button type="button" class="btn" onClick={onClose} disabled={submitting}>
             Cancel
