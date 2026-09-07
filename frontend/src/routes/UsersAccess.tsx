@@ -12,7 +12,7 @@ import {
   type UpdateUserBody,
 } from '../api'
 import type { ManagedUser, Role } from '../types'
-import { ApiBanner, Modal, PageHeader } from '../components/ui'
+import { ApiBanner, Modal, MultiSelect, PageHeader } from '../components/ui'
 
 const ROLE_OPTIONS: { value: Role; label: string }[] = [
   { value: 'admin', label: 'Admin' },
@@ -205,9 +205,6 @@ function UserModal({
   const [banner, setBanner] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
-  const toggleProject = (id: string) =>
-    setProjectIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
-
   const validate = (): boolean => {
     const e: Record<string, string> = {}
     if (!name.trim()) e.name = 'Name is required.'
@@ -336,22 +333,18 @@ function UserModal({
         {/* Project access — hidden for admin, who implicitly has all projects. */}
         {role !== 'admin' && (
           <div class="field">
-            <label>Project access</label>
+            <label>
+              Project access <span class="hint">(select one or more)</span>
+            </label>
             {projects.length === 0 ? (
               <p class="subtle" style={{ margin: 0 }}>No projects exist yet.</p>
             ) : (
-              <div class="checkbox-list">
-                {projects.map((p) => (
-                  <label key={p._id} class="checkbox-row">
-                    <input
-                      type="checkbox"
-                      checked={projectIds.includes(p._id)}
-                      onChange={() => toggleProject(p._id)}
-                    />
-                    {p.name}
-                  </label>
-                ))}
-              </div>
+              <MultiSelect
+                values={projectIds}
+                onChange={setProjectIds}
+                options={projects.map((p) => ({ value: p._id, label: p.name }))}
+                placeholder="No projects selected"
+              />
             )}
           </div>
         )}

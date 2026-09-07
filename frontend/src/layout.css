@@ -822,3 +822,91 @@
   background: #9a3125;
   border-color: #9a3125;
 }
+
+/* ---------- MultiSelect (checkbox dropdown) ---------- */
+.ms-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  overflow: hidden;
+}
+
+.dropdown-trigger .ms-summary + .dropdown-chevron {
+  flex-shrink: 0;
+}
+
+.ms-option {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.ms-check {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  border: 1.5px solid var(--border-strong);
+  border-radius: 4px;
+  background: var(--surface);
+  display: inline-grid;
+  place-items: center;
+  color: #fff;
+}
+
+.ms-check.on {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.ms-check svg {
+  width: 12px;
+  height: 12px;
+}
+
+.ms-option.selected {
+  background: var(--accent-soft);
+}
+
+.dropdown-empty {
+  color: var(--ink-faint);
+  cursor: default;
+}
+
+/* ---------- MultiSelect: scrollable menu + removable chips ---------- */
+.dropdown-menu {
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.ms-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding-right: 4px;
+}
+
+.ms-chip-x {
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--ink-faint);
+  padding: 0 3px;
+  border-radius: 3px;
+  user-select: none;
+}
+.ms-chip-x:hover {
+  color: var(--danger);
+  background: rgba(178, 58, 44, 0.12);
+}
+
+/* Project-access menu: scroll the list itself (keeps the popup from growing). */
+.ms-menu {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+/* Open the menu upward when there's no room below the trigger. */
+.dropdown-menu.dropup {
+  top: auto;
+  bottom: calc(100% + 6px);
+}

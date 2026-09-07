@@ -83,6 +83,132 @@ export function Dropdown({
   )
 }
 
+// ---------- Multi-select dropdown (checkbox menu, same look as Dropdown) ----------
+export function MultiSelect({
+  values,
+  onChange,
+  options,
+  disabled,
+  placeholder = 'Select…',
+  class: className,
+}: {
+  values: string[]
+  onChange: (values: string[]) => void
+  options: DropdownOption[]
+  disabled?: boolean
+  placeholder?: string
+  class?: string
+}) {
+  const [open, setOpen] = useState(false)
+  // When there isn't room below the trigger, open the menu upward so its rows
+  // (and its scrollbar) never fall off the bottom of the viewport.
+  const [dropUp, setDropUp] = useState(false)
+  const rootRef = useRef<HTMLDivElement>(null)
+
+  const MENU_MAX = 200 // keep in sync with .ms-menu max-height
+
+  const openMenu = () => {
+    const rect = rootRef.current?.getBoundingClientRect()
+    if (rect) {
+      const spaceBelow = window.innerHeight - rect.bottom
+      const spaceAbove = rect.top
+      setDropUp(spaceBelow < MENU_MAX + 16 && spaceAbove > spaceBelow)
+    }
+    setOpen(true)
+  }
+
+  useEffect(() => {
+    if (!open) return
+    const onDocClick = (e: MouseEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('mousedown', onDocClick)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDocClick)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  const toggle = (v: string) =>
+    onChange(values.includes(v) ? values.filter((x) => x !== v) : [...values, v])
+
+  const selectedOptions = options.filter((o) => values.includes(o.value))
+
+  return (
+    <div class={`dropdown ${className ?? ''}`} ref={rootRef}>
+      <button
+        type="button"
+        class="dropdown-trigger"
+        disabled={disabled}
+        onClick={() => (open ? setOpen(false) : openMenu())}
+      >
+        {selectedOptions.length === 0 ? (
+          <span class="dropdown-placeholder">{placeholder}</span>
+        ) : (
+          <span class="ms-summary">
+            {selectedOptions.map((o) => (
+              <span key={o.value} class="chip ms-chip">
+                {o.label}
+                <span
+                  role="button"
+                  tabIndex={0}
+                  class="ms-chip-x"
+                  aria-label={`Remove ${o.label}`}
+                  onClick={(e) => {
+                    // Don't toggle the menu open/closed when removing a chip.
+                    e.stopPropagation()
+                    toggle(o.value)
+                  }}
+                >
+                  ×
+                </span>
+              </span>
+            ))}
+          </span>
+        )}
+        <svg class="dropdown-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6 9l6 6 6-6" />
+        </svg>
+      </button>
+
+      {open && (
+        <div class={`dropdown-menu ms-menu ${dropUp ? 'dropup' : ''}`} role="listbox" aria-multiselectable="true">
+          {options.length === 0 ? (
+            <div class="dropdown-option dropdown-empty">No options</div>
+          ) : (
+            options.map((o) => {
+              const checked = values.includes(o.value)
+              return (
+                <button
+                  type="button"
+                  key={o.value}
+                  class={`dropdown-option ms-option ${checked ? 'selected' : ''}`}
+                  role="option"
+                  aria-selected={checked}
+                  onClick={() => toggle(o.value)}
+                >
+                  <span class={`ms-check ${checked ? 'on' : ''}`} aria-hidden="true">
+                    {checked && (
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M5 12l5 5L20 7" />
+                      </svg>
+                    )}
+                  </span>
+                  {o.label}
+                </button>
+              )
+            })
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ---------- Status badge ----------
 export function StatusBadge({ status }: { status: string }) {
   const cls =
