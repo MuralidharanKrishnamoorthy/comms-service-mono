@@ -21,6 +21,12 @@ export const createCategorySchema = z.object({
     .optional(),
 })
 
+// Rename only. Attachments are edited through the attach/detach endpoints,
+// which already enforce per-project access on the template being moved.
+export const updateCategorySchema = z.object({
+  name: z.string().min(1).max(60),
+})
+
 // A template attached to a category. template_key is kept alongside
 // template_id because every other template route addresses templates by key,
 // not id — but template_id is the real foreign key, and is what lets a

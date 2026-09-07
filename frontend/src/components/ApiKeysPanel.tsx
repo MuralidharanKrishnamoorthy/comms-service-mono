@@ -4,6 +4,7 @@ import {
   ApiError,
   API_BASE,
   createApiKey,
+  deleteApiKey,
   listApiKeys,
   revealApiKey,
   revokeApiKey,
@@ -23,6 +24,8 @@ export function ApiKeysPanel({ projectId }: { projectId: string }) {
   const [busyId, setBusyId] = useState<string | null>(null)
   // The key awaiting revoke confirmation (drives the in-app dialog).
   const [pendingRevoke, setPendingRevoke] = useState<ApiKeyRow | null>(null)
+  // Likewise for delete, which is a separate, harder action than revoke.
+  const [pendingDelete, setPendingDelete] = useState<ApiKeyRow | null>(null)
 
   const refresh = () => {
     setLoading(true)
@@ -41,6 +44,10 @@ export function ApiKeysPanel({ projectId }: { projectId: string }) {
   const isOwner = (k: ApiKeyRow) => user?.id === k.created_by
   const canRevoke = (k: ApiKeyRow) =>
     k.status === 'active' && (user?.role === 'admin' || isOwner(k))
+  // Delete is cleanup for keys already out of service — the API rejects it
+  // while a key is still active, so don't offer it there either.
+  const canDelete = (k: ApiKeyRow) =>
+    k.status !== 'active' && (user?.role === 'admin' || isOwner(k))
 
   // Copy: fetch the value FRESH each click (owner-only endpoint); never cache it
   // beyond the clipboard write.
@@ -55,6 +62,21 @@ export function ApiKeysPanel({ projectId }: { projectId: string }) {
     } catch (err) {
       if (err instanceof ApiError) setBanner(err.message)
       else setBanner('Could not copy the key.')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const doDelete = async (k: ApiKeyRow) => {
+    setBanner(null)
+    setBusyId(k._id)
+    try {
+      await deleteApiKey(projectId, k._id)
+      setPendingDelete(null)
+      refresh()
+    } catch (err) {
+      setBanner(err instanceof ApiError ? err.message : 'Could not delete the key.')
+      setPendingDelete(null)
     } finally {
       setBusyId(null)
     }
@@ -159,6 +181,16 @@ export function ApiKeysPanel({ projectId }: { projectId: string }) {
                         Revoke
                       </button>
                     )}
+                    {canDelete(k) && (
+                      <button
+                        class="btn btn-sm btn-danger"
+                        style={{ marginLeft: 8 }}
+                        disabled={busyId === k._id}
+                        onClick={() => setPendingDelete(k)}
+                      >
+                        Delete
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))
@@ -191,6 +223,24 @@ export function ApiKeysPanel({ projectId }: { projectId: string }) {
           }
           onConfirm={() => doRevoke(pendingRevoke)}
           onCancel={() => setPendingRevoke(null)}
+        />
+      )}
+
+      {pendingDelete && (
+        <ConfirmDialog
+          title="Delete API key"
+          danger
+          confirmLabel="Delete key"
+          busy={busyId === pendingDelete._id}
+          message={
+            <>
+              Permanently delete <strong>{pendingDelete.name}</strong>? It's already{' '}
+              {pendingDelete.status}, so nothing is using it — this only clears it from the
+              list, and the record of it goes with it.
+            </>
+          }
+          onConfirm={() => doDelete(pendingDelete)}
+          onCancel={() => setPendingDelete(null)}
         />
       )}
     </div>

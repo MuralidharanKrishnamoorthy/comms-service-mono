@@ -71,6 +71,25 @@ export interface TemplateWithAttached extends Template {
   attached: boolean
 }
 
+// One template attached to a category, hydrated with the details needed to
+// show it without knowing which project you're looking at.
+export interface AttachedTemplateRow {
+  template_id: string
+  template_key: string
+  name: string
+  channels: Template['channels']
+  project_id: string
+  project_name: string
+  attached_at: string
+}
+
+export interface CategoryWithAttached {
+  category: { _id: string; name: string; created_at: string }
+  attached: AttachedTemplateRow[]
+  // Attachments in projects this user can't access — counted, never detailed.
+  hidden_count: number
+}
+
 export interface Category {
   _id: string
   name: string

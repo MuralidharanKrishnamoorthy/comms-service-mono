@@ -1,8 +1,16 @@
 import { useEffect, useState } from 'preact/hooks'
 import { route } from 'preact-router'
-import { ApiError, API_BASE, createCategory, listCategories, listTemplates } from '../api'
+import {
+  ApiError,
+  API_BASE,
+  createCategory,
+  deleteCategory,
+  listCategories,
+  listTemplates,
+  updateCategory,
+} from '../api'
 import type { Category, Template } from '../types'
-import { ApiBanner, Dropdown, Modal, PageHeader } from '../components/ui'
+import { ApiBanner, ConfirmDialog, Dropdown, Modal, PageHeader } from '../components/ui'
 import { useStore } from '../store'
 
 // Deterministic accent per category, so the same name always gets the same
@@ -22,11 +30,33 @@ function FolderIcon() {
   )
 }
 
+function PencilIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+    </svg>
+  )
+}
+
+function TrashIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6" />
+      <path d="M10 11v6M14 11v6" />
+    </svg>
+  )
+}
+
 export function Categories(_props: { path?: string }) {
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [unreachable, setUnreachable] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
+  const [renaming, setRenaming] = useState<Category | null>(null)
+  const [deleting, setDeleting] = useState<Category | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [banner, setBanner] = useState<string | null>(null)
 
   const load = () => {
     setLoading(true)
@@ -42,6 +72,21 @@ export function Categories(_props: { path?: string }) {
 
   useEffect(load, [])
 
+  const confirmDelete = async (cat: Category) => {
+    setBanner(null)
+    setBusy(true)
+    try {
+      await deleteCategory(cat._id)
+      setDeleting(null)
+      load()
+    } catch (err) {
+      setBanner(err instanceof ApiError ? err.message : 'Could not delete the category.')
+      setDeleting(null)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <div>
       <PageHeader
@@ -54,6 +99,7 @@ export function Categories(_props: { path?: string }) {
         }
       />
 
+      {banner && <div class="banner-error" style={{ marginBottom: 12 }}>{banner}</div>}
       {unreachable && <ApiBanner base={API_BASE} />}
 
       {loading ? (
@@ -77,10 +123,35 @@ export function Categories(_props: { path?: string }) {
                   {cat.template_count} {cat.template_count === 1 ? 'template' : 'templates'}
                 </div>
               </div>
-              <div class="cat-card-arrow-btn">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M7 17L17 7M9 7h8v8" />
-                </svg>
+              {/* Icon buttons, not text: the grid's columns bottom out at
+                  240px and "Rename"/"Delete" labels don't fit beside the name.
+                  stopPropagation on each — the whole card navigates, and these
+                  must not trigger that. */}
+              <div class="cat-card-actions">
+                <button
+                  type="button"
+                  class="cat-card-action"
+                  title="Rename category"
+                  aria-label={`Rename ${cat.name}`}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setRenaming(cat)
+                  }}
+                >
+                  <PencilIcon />
+                </button>
+                <button
+                  type="button"
+                  class="cat-card-action danger"
+                  title="Delete category"
+                  aria-label={`Delete ${cat.name}`}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setDeleting(cat)
+                  }}
+                >
+                  <TrashIcon />
+                </button>
               </div>
             </div>
           ))}
@@ -96,7 +167,121 @@ export function Categories(_props: { path?: string }) {
           }}
         />
       )}
+
+      {renaming && (
+        <RenameCategoryModal
+          category={renaming}
+          onClose={() => setRenaming(null)}
+          onRenamed={() => {
+            setRenaming(null)
+            load()
+          }}
+        />
+      )}
+
+      {deleting && (
+        <ConfirmDialog
+          title="Delete category"
+          danger
+          confirmLabel="Delete category"
+          busy={busy}
+          message={
+            <>
+              Delete <strong>{deleting.name}</strong>?
+              {deleting.template_count > 0 && (
+                <>
+                  {' '}
+                  Its {deleting.template_count}{' '}
+                  {deleting.template_count === 1 ? 'template' : 'templates'} will be
+                  ungrouped — the templates themselves are not deleted.
+                </>
+              )}{' '}
+              This can't be undone.
+            </>
+          }
+          onConfirm={() => confirmDelete(deleting)}
+          onCancel={() => setDeleting(null)}
+        />
+      )}
     </div>
+  )
+}
+
+function RenameCategoryModal({
+  category,
+  onClose,
+  onRenamed,
+}: {
+  category: Category
+  onClose: () => void
+  onRenamed: () => void
+}) {
+  const [name, setName] = useState(category.name)
+  const [nameError, setNameError] = useState<string | null>(null)
+  const [banner, setBanner] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+
+  const submit = async (e: Event) => {
+    e.preventDefault()
+    setBanner(null)
+    const trimmed = name.trim()
+    if (!trimmed) {
+      setNameError('Category name is required.')
+      return
+    }
+    if (trimmed === category.name) {
+      onClose()
+      return
+    }
+    setNameError(null)
+    setSubmitting(true)
+    try {
+      await updateCategory(category._id, trimmed)
+      onRenamed()
+    } catch (err) {
+      if (err instanceof ApiError) {
+        if (err.isNetwork) setBanner(`Can't reach the API at ${API_BASE} — is the backend running?`)
+        else if (err.status === 409) setNameError(err.message)
+        else setBanner(err.message)
+      } else {
+        setBanner('Something went wrong.')
+      }
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <Modal title="Rename category" onClose={onClose}>
+      {banner && <div class="banner-error">{banner}</div>}
+      <form onSubmit={submit}>
+        <div class="field">
+          <label for="cat-rename">
+            Category name <span class="hint">(stored in capitals)</span>
+          </label>
+          <input
+            id="cat-rename"
+            type="text"
+            value={name}
+            autoFocus
+            class={nameError ? 'invalid' : ''}
+            onInput={(e) => {
+              setName((e.target as HTMLInputElement).value.toUpperCase())
+              setNameError(null)
+            }}
+          />
+          {nameError && <div class="field-error">{nameError}</div>}
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary" disabled={submitting}>
+            {submitting ? 'Saving…' : 'Save name'}
+          </button>
+          <button type="button" class="btn" onClick={onClose} disabled={submitting}>
+            Cancel
+          </button>
+        </div>
+      </form>
+    </Modal>
   )
 }
 

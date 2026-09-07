@@ -3,6 +3,7 @@ import type {
   ApiKeyRow,
   AuthUser,
   Category,
+  CategoryWithAttached,
   CreatedApiKey,
   CreatedProject,
   ManagedUser,
@@ -164,6 +165,13 @@ export const createApiKey = (projectId: string, name: string, expiresInDays?: nu
 export const revealApiKey = (projectId: string, keyId: string) =>
   request<{ value: string }>(`/projects/${projectId}/api-keys/${keyId}/reveal`)
 
+// Removes the row entirely. The API refuses this while a key is still active —
+// revoke first, so whatever is using it gets an accurate error.
+export const deleteApiKey = (projectId: string, keyId: string) =>
+  request<{ deleted: true }>(`/projects/${projectId}/api-keys/${keyId}`, {
+    method: 'DELETE',
+  })
+
 export const revokeApiKey = (projectId: string, keyId: string) =>
   request<{ id: string; status: 'revoked' }>(
     `/projects/${projectId}/api-keys/${keyId}/revoke`,
@@ -205,6 +213,22 @@ export const createCategory = (
     method: 'POST',
     body: JSON.stringify({ name, templates }),
   })
+
+export const updateCategory = (categoryId: string, name: string) =>
+  request<Category>(`/categories/${categoryId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ name }),
+  })
+
+export const deleteCategory = (categoryId: string) =>
+  request<{ deleted: true; detached: number }>(`/categories/${categoryId}`, {
+    method: 'DELETE',
+  })
+
+// The category and everything attached to it, across every project the caller
+// can see — no project needs picking first.
+export const getCategory = (categoryId: string) =>
+  request<CategoryWithAttached>(`/categories/${categoryId}`)
 
 export const getCategoryTemplates = (categoryId: string, projectId: string) =>
   request<{ category: Category; templates: TemplateWithAttached[] }>(
