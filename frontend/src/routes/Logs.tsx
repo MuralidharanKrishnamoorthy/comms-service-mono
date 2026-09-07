@@ -64,7 +64,7 @@ export function Logs(_props: { path?: string }) {
     <div>
       <PageHeader
         title="Notification Logs"
-        subtitle={`Send history for ${selectedProject.name} · newest first, up to 200 rows.`}
+        // subtitle={`Send history for ${selectedProject.name} · newest first, up to 200 rows.`}
       />
 
       {unreachable && <ApiBanner base={API_BASE} />}
