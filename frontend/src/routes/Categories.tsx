@@ -405,11 +405,12 @@ function EditCategoryModal({
 }
 
 function CreateCategoryModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
-  const { projects, selectedProjectId } = useStore()
+  const { projects } = useStore()
   const [name, setName] = useState('')
-  // Pre-selected from the top bar, so the common case ("group templates from
-  // the project I'm already looking at") costs zero extra clicks.
-  const [projectId, setProjectId] = useState(selectedProjectId ?? projects[0]?._id ?? '')
+  // Starts empty on purpose: a new category picks its own project rather than
+  // inheriting the top bar's, so nothing is added by default. Adding templates
+  // is optional — a category can be created with none and filled in later.
+  const [projectId, setProjectId] = useState('')
   const [templates, setTemplates] = useState<Template[]>([])
   const [templatesLoading, setTemplatesLoading] = useState(false)
   const [picked, setPicked] = useState<string[]>([])
