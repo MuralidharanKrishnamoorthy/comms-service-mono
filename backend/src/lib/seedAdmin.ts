@@ -28,6 +28,10 @@ export async function seedAdmin(): Promise<void> {
     role: 'admin',
     status: 'active',
     project_ids: [],
+    // Admins never carry the flag — the Profile page has no password section
+    // for them, so a set flag would surface a dead-end notice. (Do change the
+    // seeded default password via an admin edit or a fresh admin account.)
+    must_change_password: false,
     created_at: now,
     updated_at: now,
   })

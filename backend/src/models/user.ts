@@ -18,6 +18,11 @@ export interface User {
   // Projects this user may access. Always empty for admins — their access is
   // implicit and unrestricted, enforced by branching on role, not this field.
   project_ids: ObjectId[]
+  // true while the account is still on the temporary password an admin set at
+  // create/reset time. Cleared to false once the user sets their own password
+  // via POST /auth/me/password. Purely informational (drives a notice) — it
+  // never blocks access. Missing on pre-existing accounts → treated as false.
+  must_change_password?: boolean
   created_at: Date
   updated_at: Date
 }
@@ -35,6 +40,21 @@ export interface SafeUser {
 }
 
 const objectIdString = z.string().regex(/^[a-fA-F0-9]{24}$/, 'Invalid id')
+
+// Password strength rules for SELF-SERVICE password changes: at least 8
+// characters and at least one number. Exported so both the endpoint and its
+// tests share one source of truth.
+// NOTE: admin create/reset (createUserSchema / updateUserSchema below) currently
+// enforce only the 8-char minimum, not the digit rule — see the discrepancy note
+// in the PR description.
+export const passwordSchema = z
+  .string()
+  .min(8, 'Password must be at least 8 characters')
+  .regex(/[0-9]/, 'Password must include at least one number')
+
+export const changePasswordSchema = z.object({
+  newPassword: passwordSchema,
+})
 
 // Password is admin-set. Required on create.
 export const createUserSchema = z.object({

@@ -52,6 +52,10 @@ usersRoute.post('/', async (c) => {
     role: parsed.data.role,
     status: 'active',
     project_ids: resolveProjectIds(parsed.data.role, parsed.data.project_ids) ?? [],
+    // Admin-set password is temporary until the user changes it themselves.
+    // Admins never carry the flag — they don't change passwords via the Profile
+    // page, so a lingering flag would only surface a dead-end notice.
+    must_change_password: parsed.data.role !== 'admin',
     created_at: now,
     updated_at: now,
   }
@@ -93,15 +97,21 @@ usersRoute.patch('/:id', async (c) => {
   const existing = await db.collection<User>('users').findOne({ _id })
   if (!existing) return c.json({ error: 'User not found' }, 404)
 
+  const effectiveRole = parsed.data.role ?? existing.role
+
   const set: Partial<User> = { updated_at: new Date() }
   if (parsed.data.name !== undefined) set.name = parsed.data.name.trim()
   if (parsed.data.email !== undefined) set.email = parsed.data.email.toLowerCase().trim()
   if (parsed.data.role !== undefined) set.role = parsed.data.role
   if (parsed.data.status !== undefined) set.status = parsed.data.status
   // password PRESENT = reset the hash; OMITTED = leave the existing one untouched.
-  if (parsed.data.password !== undefined) set.password_hash = hashPassword(parsed.data.password)
+  // An admin reset drops a non-admin user back onto a temporary password; admin
+  // accounts never carry the flag (no self-service password page for them).
+  if (parsed.data.password !== undefined) {
+    set.password_hash = hashPassword(parsed.data.password)
+    set.must_change_password = effectiveRole !== 'admin'
+  }
 
-  const effectiveRole = parsed.data.role ?? existing.role
   const projectIds = resolveProjectIds(effectiveRole, parsed.data.project_ids)
   if (projectIds !== undefined) set.project_ids = projectIds
 
