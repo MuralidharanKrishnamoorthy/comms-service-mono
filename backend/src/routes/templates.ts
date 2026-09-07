@@ -4,6 +4,7 @@ import { getDb } from '../db.js'
 import {
   createTemplateSchema,
   updateChannelContentSchema,
+  normalizeTemplateKey,
   type Template,
   type ChannelContent,
 } from '../models/template.js'
@@ -97,7 +98,7 @@ templatesRoute.get('/', async (c) => {
 // Look up one template by its key (used internally by the send endpoint later)
 templatesRoute.get('/:templateKey', async (c) => {
   const projectId = c.req.param('projectId')
-  const templateKey = c.req.param('templateKey')
+  const templateKey = normalizeTemplateKey(c.req.param('templateKey') ?? '')
   if (!projectId || !ObjectId.isValid(projectId)) {
     return c.json({ error: 'Invalid projectId' }, 400)
   }
@@ -123,7 +124,7 @@ templatesRoute.get('/:templateKey', async (c) => {
 // "no redeploy needed" design decision).
 templatesRoute.patch('/:templateKey/:channel', async (c) => {
   const projectId = c.req.param('projectId')
-  const templateKey = c.req.param('templateKey')
+  const templateKey = normalizeTemplateKey(c.req.param('templateKey') ?? '')
   const channel = c.req.param('channel')
 
   if (!projectId || !ObjectId.isValid(projectId)) {
@@ -172,7 +173,7 @@ templatesRoute.patch('/:templateKey/:channel', async (c) => {
 // a template that no longer exists.
 templatesRoute.delete('/:templateKey', async (c) => {
   const projectId = c.req.param('projectId')
-  const templateKey = c.req.param('templateKey')
+  const templateKey = normalizeTemplateKey(c.req.param('templateKey') ?? '')
   if (!projectId || !ObjectId.isValid(projectId)) {
     return c.json({ error: 'Invalid projectId' }, 400)
   }

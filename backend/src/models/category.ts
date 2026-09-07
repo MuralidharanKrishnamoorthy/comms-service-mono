@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import type { ObjectId } from 'mongodb'
+import { normalizeTemplateKey } from './template.js'
 
 const objectIdString = z.string().regex(/^[a-fA-F0-9]{24}$/, 'Invalid id')
 
@@ -14,7 +15,7 @@ export const createCategorySchema = z.object({
     .array(
       z.object({
         project_id: objectIdString,
-        template_key: z.string().min(1).max(80),
+        template_key: z.string().min(1).max(80).transform(normalizeTemplateKey),
       })
     )
     .max(200, 'Too many templates in one request')
@@ -32,7 +33,7 @@ export const updateCategorySchema = z
       .array(
         z.object({
           project_id: objectIdString,
-          template_key: z.string().min(1).max(80),
+          template_key: z.string().min(1).max(80).transform(normalizeTemplateKey),
         })
       )
       .max(200, 'Too many templates in one request')

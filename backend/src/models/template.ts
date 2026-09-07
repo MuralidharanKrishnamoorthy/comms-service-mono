@@ -1,5 +1,8 @@
 import { z } from 'zod'
 import type { ObjectId } from 'mongodb'
+export function normalizeTemplateKey(key: string): string {
+  return key.trim().toUpperCase()
+}
 
 const channelContentSchema = z.object({
   subject: z.string().optional(), // email only
@@ -14,7 +17,8 @@ export const createTemplateSchema = z.object({
     .string()
     .min(1)
     .max(80)
-    .regex(/^[A-Z0-9_]+$/, 'template_key must be UPPER_SNAKE_CASE, e.g. ORDER_CREATED'),
+    .regex(/^[A-Za-z0-9_]+$/, 'template_key may only contain letters, numbers and underscores')
+    .transform(normalizeTemplateKey),
   name: z.string().min(1).max(120),
   channels: z
     .object({
