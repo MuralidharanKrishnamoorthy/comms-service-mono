@@ -804,3 +804,21 @@
 .checkbox-row input {
   width: auto;
 }
+
+/* ---------- Confirm dialog ---------- */
+.confirm-message {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--ink);
+  margin-bottom: 4px;
+}
+
+.btn-danger-solid {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
+}
+.btn-danger-solid:hover {
+  background: #9a3125;
+  border-color: #9a3125;
+}

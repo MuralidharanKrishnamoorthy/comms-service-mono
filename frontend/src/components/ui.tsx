@@ -167,6 +167,46 @@ export function Modal({
   )
 }
 
+// ---------- Confirm dialog (in-app replacement for window.confirm) ----------
+export function ConfirmDialog({
+  title,
+  message,
+  confirmLabel = 'Confirm',
+  cancelLabel = 'Cancel',
+  danger = false,
+  busy = false,
+  onConfirm,
+  onCancel,
+}: {
+  title: string
+  message: ComponentChildren
+  confirmLabel?: string
+  cancelLabel?: string
+  danger?: boolean
+  busy?: boolean
+  onConfirm: () => void
+  onCancel: () => void
+}) {
+  return (
+    <Modal title={title} onClose={onCancel} width={420}>
+      <div class="confirm-message">{message}</div>
+      <div class="form-actions">
+        <button
+          type="button"
+          class={`btn ${danger ? 'btn-danger-solid' : 'btn-primary'}`}
+          disabled={busy}
+          onClick={onConfirm}
+        >
+          {busy ? 'Working…' : confirmLabel}
+        </button>
+        <button type="button" class="btn" disabled={busy} onClick={onCancel}>
+          {cancelLabel}
+        </button>
+      </div>
+    </Modal>
+  )
+}
+
 // ---------- Drawer (slides from right) ----------
 export function Drawer({
   title,

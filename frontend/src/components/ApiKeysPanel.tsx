@@ -9,7 +9,7 @@ import {
   revokeApiKey,
 } from '../api'
 import type { ApiKeyRow, CreatedApiKey } from '../types'
-import { ApiBanner, Dropdown, Modal, StatusBadge } from './ui'
+import { ApiBanner, ConfirmDialog, Dropdown, Modal, StatusBadge } from './ui'
 import { formatDate } from '../util'
 
 export function ApiKeysPanel({ projectId }: { projectId: string }) {
@@ -21,6 +21,8 @@ export function ApiKeysPanel({ projectId }: { projectId: string }) {
   const [banner, setBanner] = useState<string | null>(null)
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
+  // The key awaiting revoke confirmation (drives the in-app dialog).
+  const [pendingRevoke, setPendingRevoke] = useState<ApiKeyRow | null>(null)
 
   const refresh = () => {
     setLoading(true)
@@ -58,16 +60,18 @@ export function ApiKeysPanel({ projectId }: { projectId: string }) {
     }
   }
 
-  const revoke = async (k: ApiKeyRow) => {
-    if (!confirm(`Revoke "${k.name}"? Any app using this key will stop working immediately.`)) return
+  // Runs after the in-app confirm dialog is accepted.
+  const doRevoke = async (k: ApiKeyRow) => {
     setBanner(null)
     setBusyId(k._id)
     try {
       await revokeApiKey(projectId, k._id)
+      setPendingRevoke(null)
       refresh()
     } catch (err) {
       if (err instanceof ApiError) setBanner(err.message)
       else setBanner('Could not revoke the key.')
+      setPendingRevoke(null)
       setBusyId(null)
     }
   }
@@ -150,7 +154,7 @@ export function ApiKeysPanel({ projectId }: { projectId: string }) {
                         class="btn btn-sm btn-danger"
                         style={{ marginLeft: 8 }}
                         disabled={busyId === k._id}
-                        onClick={() => revoke(k)}
+                        onClick={() => setPendingRevoke(k)}
                       >
                         Revoke
                       </button>
@@ -170,6 +174,23 @@ export function ApiKeysPanel({ projectId }: { projectId: string }) {
             setCreating(false)
             refresh()
           }}
+        />
+      )}
+
+      {pendingRevoke && (
+        <ConfirmDialog
+          title="Revoke API key"
+          danger
+          confirmLabel="Revoke key"
+          busy={busyId === pendingRevoke._id}
+          message={
+            <>
+              Revoke <strong>{pendingRevoke.name}</strong>? Any app using this key will
+              stop working <strong>immediately</strong>. This can't be undone.
+            </>
+          }
+          onConfirm={() => doRevoke(pendingRevoke)}
+          onCancel={() => setPendingRevoke(null)}
         />
       )}
     </div>
