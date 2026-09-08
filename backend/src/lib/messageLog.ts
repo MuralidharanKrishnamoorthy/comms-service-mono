@@ -4,7 +4,7 @@ import type { MessageLog } from '../models/messageLog.js'
 
 const MAX_ATTEMPTS = 5
 const BASE_DELAY_SECONDS = 30
-const MAX_DELAY_SECONDS = 30 * 60 // cap backoff at 30 minutes
+const MAX_DELAY_SECONDS = 30 * 60
 
 export async function createMessageLog(
   input: Omit<MessageLog, '_id' | 'status' | 'attempts' | 'created_at' | 'updated_at'>
@@ -29,11 +29,6 @@ export async function markSent(logId: ObjectId, providerMessageId: string) {
   )
 }
 
-/**
- * Records a failed attempt. Below MAX_ATTEMPTS, schedules a retry with
- * exponential backoff and keeps status "pending" so the sweep picks it back
- * up. At MAX_ATTEMPTS, marks it permanently "failed" — no further retries.
- */
 export async function markFailedAndScheduleRetry(logId: ObjectId, attemptsSoFar: number) {
   const db = getDb()
   const attempts = attemptsSoFar + 1

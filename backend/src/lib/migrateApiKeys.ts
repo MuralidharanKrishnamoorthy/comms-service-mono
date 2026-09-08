@@ -5,11 +5,6 @@ import type { Project } from '../models/project.js'
 import type { ApiKey } from '../models/apiKey.js'
 import type { User } from '../models/user.js'
 
-// One-time migration: fold each project's legacy single key (api_key_hash, and
-// api_key if it was stored in plaintext) into one row in the api_keys
-// collection, owned by a designated admin, then unset the legacy fields.
-// Idempotent: skips projects that no longer carry a legacy hash, and never
-// duplicates a key that already exists for the same hash.
 export async function migrateApiKeys(): Promise<void> {
   const db = getDb()
   const legacy = await db
@@ -18,8 +13,6 @@ export async function migrateApiKeys(): Promise<void> {
     .toArray()
   if (legacy.length === 0) return
 
-  // Owner for migrated keys: the first admin (fallback: any user). If there are
-  // no users at all, leave the legacy fields in place and try again next boot.
   const owner =
     (await db.collection<User>('users').findOne({ role: 'admin' }, { sort: { created_at: 1 } })) ??
     (await db.collection<User>('users').findOne({}, { sort: { created_at: 1 } }))
@@ -39,13 +32,11 @@ export async function migrateApiKeys(): Promise<void> {
         name: 'Migrated key',
         key_prefix: project.api_key ? keyPrefix(project.api_key) : 'csvc_…',
         key_hash: hash,
-        // Only recoverable if the old plaintext was stored; otherwise the value
-        // is gone and the owner must generate a fresh key.
+
         value_encrypted: project.api_key ? encryptSecret(project.api_key) : null,
         created_by: owner._id!,
         status: project.status === 'active' ? 'active' : 'revoked',
-        // Predates the expiry feature — grandfathered in as never-expiring
-        // rather than retroactively expiring a key nobody rotated on purpose.
+
         expires_at: null,
         created_at: project.created_at ?? now,
         updated_at: now,

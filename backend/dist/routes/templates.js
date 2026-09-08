@@ -1,15 +1,12 @@
 import { Hono } from 'hono';
 import { ObjectId, MongoServerError } from 'mongodb';
 import { getDb } from '../db.js';
-import { createTemplateSchema, updateChannelContentSchema, } from '../models/template.js';
+import { createTemplateSchema, updateChannelContentSchema, normalizeTemplateKey, } from '../models/template.js';
 import { hasProjectAccess } from '../lib/access.js';
-// Mounted at /projects/:projectId/templates — behind dashboardAuth, and each
-// handler additionally checks the caller may access this specific project.
 export const templatesRoute = new Hono();
 function withVersionAndLive(content) {
     return { ...content, version: 1, live: true };
 }
-// Create a template
 templatesRoute.post('/', async (c) => {
     const projectId = c.req.param('projectId');
     if (!projectId || !ObjectId.isValid(projectId)) {
@@ -36,9 +33,9 @@ templatesRoute.post('/', async (c) => {
         template_key: parsed.data.template_key,
         name: parsed.data.name,
         channels: {
-            email: parsed.data.channels.email ? withVersionAndLive(parsed.data.channels.email) : undefined,
-            sms: parsed.data.channels.sms ? withVersionAndLive(parsed.data.channels.sms) : undefined,
-            push: parsed.data.channels.push ? withVersionAndLive(parsed.data.channels.push) : undefined,
+            ...(parsed.data.channels.email ? { email: withVersionAndLive(parsed.data.channels.email) } : {}),
+            ...(parsed.data.channels.sms ? { sms: withVersionAndLive(parsed.data.channels.sms) } : {}),
+            ...(parsed.data.channels.push ? { push: withVersionAndLive(parsed.data.channels.push) } : {}),
         },
         created_at: new Date(),
         updated_at: new Date(),
@@ -48,15 +45,12 @@ templatesRoute.post('/', async (c) => {
         return c.json({ id: result.insertedId, ...template }, 201);
     }
     catch (err) {
-        // The findOne check above narrows the race, but a genuinely simultaneous
-        // request can still slip through — the unique index is the real guard.
         if (err instanceof MongoServerError && err.code === 11000) {
             return c.json({ error: `template_key "${parsed.data.template_key}" already exists for this project` }, 409);
         }
         throw err;
     }
 });
-// List templates for a project (dashboard use)
 templatesRoute.get('/', async (c) => {
     const projectId = c.req.param('projectId');
     if (!projectId || !ObjectId.isValid(projectId)) {
@@ -72,12 +66,14 @@ templatesRoute.get('/', async (c) => {
         .toArray();
     return c.json(templates);
 });
-// Look up one template by its key (used internally by the send endpoint later)
 templatesRoute.get('/:templateKey', async (c) => {
     const projectId = c.req.param('projectId');
-    const templateKey = c.req.param('templateKey');
+    const templateKey = normalizeTemplateKey(c.req.param('templateKey') ?? '');
     if (!projectId || !ObjectId.isValid(projectId)) {
         return c.json({ error: 'Invalid projectId' }, 400);
+    }
+    if (!(await hasProjectAccess(c.get('user'), projectId))) {
+        return c.json({ error: 'You do not have access to this project' }, 403);
     }
     const db = getDb();
     const template = await db.collection('templates').findOne({
@@ -89,12 +85,9 @@ templatesRoute.get('/:templateKey', async (c) => {
     }
     return c.json(template);
 });
-// Update one channel of a template — e.g. wording change. Bumps that channel's
-// version and keeps it live immediately (no separate publish step, matches the
-// "no redeploy needed" design decision).
 templatesRoute.patch('/:templateKey/:channel', async (c) => {
     const projectId = c.req.param('projectId');
-    const templateKey = c.req.param('templateKey');
+    const templateKey = normalizeTemplateKey(c.req.param('templateKey') ?? '');
     const channel = c.req.param('channel');
     if (!projectId || !ObjectId.isValid(projectId)) {
         return c.json({ error: 'Invalid projectId' }, 400);
@@ -125,4 +118,32 @@ templatesRoute.patch('/:templateKey/:channel', async (c) => {
     };
     await db.collection('templates').updateOne({ project_id: new ObjectId(projectId), template_key: templateKey }, { $set: { [`channels.${channel}`]: updatedChannel, updated_at: new Date() } });
     return c.json({ ...template, channels: { ...template.channels, [channel]: updatedChannel } });
+});
+// Delete a template. Cascades: pulls it out of every category's `templates`
+// array, matched by template_id — the real foreign key, immune to a
+// template_key ever being reused. No such reuse is possible today (template_key
+// is immutable), but the cascade means a category can never end up pointing at
+// a template that no longer exists.
+templatesRoute.delete('/:templateKey', async (c) => {
+    const projectId = c.req.param('projectId');
+    const templateKey = normalizeTemplateKey(c.req.param('templateKey') ?? '');
+    if (!projectId || !ObjectId.isValid(projectId)) {
+        return c.json({ error: 'Invalid projectId' }, 400);
+    }
+    if (!(await hasProjectAccess(c.get('user'), projectId))) {
+        return c.json({ error: 'You do not have access to this project' }, 403);
+    }
+    const db = getDb();
+    const template = await db.collection('templates').findOne({
+        project_id: new ObjectId(projectId),
+        template_key: templateKey,
+    });
+    if (!template) {
+        return c.json({ error: 'Template not found' }, 404);
+    }
+    await db.collection('templates').deleteOne({ _id: template._id });
+    await db
+        .collection('categories')
+        .updateMany({ 'templates.template_id': template._id }, { $pull: { templates: { template_id: template._id } } });
+    return c.json({ deleted: true });
 });

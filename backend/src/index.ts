@@ -21,9 +21,6 @@ import { startRetrySweep } from './jobs/retrySweep.js'
 
 const app = new Hono()
 
-// Credentials must be allowed for the httpOnly session cookie, which means the
-// echoed origin cannot be "*". Echo the request origin (fine for an internal
-// tool; restrict to an allowlist in production).
 app.use(
   '*',
   cors({
@@ -36,22 +33,16 @@ app.get('/', (c) => {
   return c.text('Hello Hono!')
 })
 
-// ---- Public / independently-authenticated routes (NO dashboardAuth) ----
-app.route('/auth', authRoute) // login / logout / me
-app.route('/v1/notifications/send', sendRoute) // Bearer <api_key> — consuming apps
+app.route('/auth', authRoute)
+app.route('/v1/notifications/send', sendRoute)
 app.route('/v1/webhooks', webhooksRoute)
 
-// ---- Dashboard routes: require a logged-in user ----
-// Registered before the route handlers so the middleware runs first.
 app.use('/projects', dashboardAuth)
 app.use('/projects/*', dashboardAuth)
 app.use('/categories', dashboardAuth)
 app.use('/categories/*', dashboardAuth)
-// Only the upload action itself needs a session — the served file at
-// /uploads/* must stay public, since a recipient's email client fetches it
-// with no cookie at all.
+
 app.use('/uploads', dashboardAuth)
-// (/users and /projects/:id/members apply dashboardAuth + requireAdmin internally)
 
 app.route('/projects/:projectId/members', membersRoute)
 app.route('/projects/:projectId/api-keys', apiKeysRoute)

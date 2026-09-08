@@ -4,16 +4,6 @@ import { hashApiKey } from '../lib/apiKey.js'
 import type { ApiKey } from '../models/apiKey.js'
 import type { Project } from '../models/project.js'
 
-/**
- * Verifies the "Authorization: Bearer <api_key>" header for the send API.
- *
- * Multi-key aware: the presented token is hashed and looked up in the api_keys
- * collection (one project can now have many independently-owned keys). The key
- * must be active, and its project must be active. The matched project is
- * attached as c.get('project') for downstream handlers — unchanged in spirit
- * from the old single-key design. This path uses key_hash only; it never
- * touches the reversible value_encrypted store.
- */
 export const authMiddleware = createMiddleware<{
   Variables: { project: Project }
 }>(async (c, next) => {
@@ -32,12 +22,11 @@ export const authMiddleware = createMiddleware<{
   if (!apiKey) {
     return c.json({ error: 'Invalid API key' }, 401)
   }
-  // Revoked keys fail immediately — status is checked, not just the hash match.
+
   if (apiKey.status !== 'active') {
     return c.json({ error: 'API key has been revoked' }, 401)
   }
-  // Expiry is a separate check from status — a key can be "active" in the DB
-  // and still be past its expires_at, same as project.status below it.
+
   if (apiKey.expires_at && apiKey.expires_at <= new Date()) {
     return c.json({ error: 'API key has expired' }, 401)
   }

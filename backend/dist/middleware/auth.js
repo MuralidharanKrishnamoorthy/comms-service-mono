@@ -1,11 +1,6 @@
 import { createMiddleware } from 'hono/factory';
 import { getDb } from '../db.js';
 import { hashApiKey } from '../lib/apiKey.js';
-/**
- * Verifies the "Authorization: Bearer <api_key>" header against a project's
- * stored key hash. On success, attaches the matched project to the request
- * context as c.get('project') for downstream handlers to use.
- */
 export const authMiddleware = createMiddleware(async (c, next) => {
     const authHeader = c.req.header('Authorization');
     if (!authHeader?.startsWith('Bearer ')) {
@@ -14,7 +9,17 @@ export const authMiddleware = createMiddleware(async (c, next) => {
     const key = authHeader.slice('Bearer '.length).trim();
     const hash = hashApiKey(key);
     const db = getDb();
-    const project = await db.collection('projects').findOne({ api_key_hash: hash });
+    const apiKey = await db.collection('api_keys').findOne({ key_hash: hash });
+    if (!apiKey) {
+        return c.json({ error: 'Invalid API key' }, 401);
+    }
+    if (apiKey.status !== 'active') {
+        return c.json({ error: 'API key has been revoked' }, 401);
+    }
+    if (apiKey.expires_at && apiKey.expires_at <= new Date()) {
+        return c.json({ error: 'API key has expired' }, 401);
+    }
+    const project = await db.collection('projects').findOne({ _id: apiKey.project_id });
     if (!project) {
         return c.json({ error: 'Invalid API key' }, 401);
     }

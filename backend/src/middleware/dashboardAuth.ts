@@ -5,9 +5,6 @@ import { getDb } from '../db.js'
 import { SESSION_COOKIE, verifySession } from '../lib/jwt.js'
 import type { Role, User } from '../models/user.js'
 
-// The authenticated dashboard user attached to the request context. Role is
-// re-read from the DB on every request — we never trust the (possibly stale)
-// role claim baked into the JWT for authorization decisions.
 export interface AuthUser {
   _id: ObjectId
   email: string
@@ -19,12 +16,6 @@ export interface AuthUser {
 
 export type AuthEnv = { Variables: { user: AuthUser } }
 
-/**
- * Verifies the dash_session cookie, loads the user, and attaches it to the
- * context as c.get('user'). 401 if the session is missing/invalid or the
- * account is disabled. Mount on every dashboard route (NOT on /auth/login or
- * the api-key-authenticated /v1/* routes).
- */
 export const dashboardAuth = createMiddleware<AuthEnv>(async (c, next) => {
   const token = getCookie(c, SESSION_COOKIE)
   const claims = token ? await verifySession(token) : null
@@ -55,7 +46,6 @@ export const dashboardAuth = createMiddleware<AuthEnv>(async (c, next) => {
   await next()
 })
 
-/** Requires the authenticated user to be an admin. Mount AFTER dashboardAuth. */
 export const requireAdmin = createMiddleware<AuthEnv>(async (c, next) => {
   const user = c.get('user')
   if (!user || user.role !== 'admin') {

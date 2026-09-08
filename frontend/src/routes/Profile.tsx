@@ -12,8 +12,6 @@ function initials(name: string): string {
   return (first + last).toUpperCase()
 }
 
-// Map a path back to the human name of the page it belongs to, for the
-// "Back to …" link. Falls back to Projects (the app's home).
 function pageName(path: string): string {
   if (path.startsWith('/admin/users')) return 'Users & Access'
   if (path.startsWith('/templates')) return 'Templates'
@@ -26,7 +24,6 @@ function pageName(path: string): string {
 export function Profile(_props: { path?: string }) {
   const { user, refreshUser } = useAuth()
 
-  // Where the user came from — captured as ?from= when they opened Profile.
   const from = useMemo(() => {
     const raw = new URLSearchParams(window.location.search).get('from')
     return raw && raw.startsWith('/') ? raw : '/projects'
@@ -40,7 +37,6 @@ export function Profile(_props: { path?: string }) {
 
   if (!user) return null
 
-  // Live validation rules — mirror the server (8+ chars, one number) plus match.
   const hasLength = newPassword.length >= 8
   const hasNumber = /[0-9]/.test(newPassword)
   const matches = newPassword.length > 0 && newPassword === confirm
@@ -56,7 +52,7 @@ export function Profile(_props: { path?: string }) {
       setNewPassword('')
       setConfirm('')
       setSuccess(true)
-      // Refresh /auth/me so the temporary-password notice disappears.
+
       await refreshUser()
     } catch (err) {
       if (err instanceof ApiError) {
@@ -74,7 +70,6 @@ export function Profile(_props: { path?: string }) {
       <BackLink href={from} label={`Back to ${pageName(from)}`} onClick={() => route(from)} />
       <PageHeader title="Your profile" subtitle="View your account and change your password." />
 
-      {/* Account summary (read-only) */}
       <div class="card" style={{ marginBottom: 18 }}>
         <div class="profile-head">
           <div class="profile-avatar">{initials(user.name)}</div>
@@ -88,9 +83,6 @@ export function Profile(_props: { path?: string }) {
         </div>
       </div>
 
-      {/* Change password is hidden for admins (see the admin note below). The
-          temporary-password banner lives inside this branch, so it never shows
-          for admins either — and admin accounts don't carry the flag anyway. */}
       {user.role !== 'admin' ? (
         <>
       {user.mustChangePassword && (

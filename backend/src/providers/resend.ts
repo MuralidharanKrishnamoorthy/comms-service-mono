@@ -8,8 +8,6 @@ if (!apiKey) {
 
 const resend = new Resend(apiKey)
 
-// Demo sender — Resend's shared address, works without verifying a custom
-// domain. Swap for a verified "you@yourdomain.com" once one is set up.
 const FROM_ADDRESS = process.env.RESEND_FROM_ADDRESS ?? 'onboarding@resend.dev'
 
 export const resendEmailProvider: EmailProvider = {

@@ -9,17 +9,6 @@ import Placeholder from '@tiptap/extension-placeholder'
 import Image from '@tiptap/extension-image'
 import { ApiError, uploadImage } from '../api'
 
-// Every inserted image gets a real inline max-width — TipTap's bare
-// setImage() otherwise renders <img src="..."> with no size constraint at
-// all, which email clients render at native resolution (they only honor
-// inline styles, not the dashboard's own CSS), the same overflow bug fixed
-// in the dashboard preview but here for what actually gets sent.
-//
-// addNodeView gives every inserted image its own always-visible "×" button
-// (rather than a toolbar button that only works once the image is clicked
-// and selected first). The button uses getPos() to delete exactly that
-// image node's range — never a plain "delete selection", so it can't ever
-// eat surrounding text.
 const SizedImage = Image.extend({
   addAttributes() {
     return {
@@ -59,21 +48,6 @@ const SizedImage = Image.extend({
   },
 })
 
-/**
- * Word/Excel-style rich text editor for the email HTML body field.
- *
- * Built directly on TipTap's framework-agnostic core (not @tiptap/react),
- * mounted via a plain ref + useEffect. This avoids any React-hook
- * compatibility question under Preact entirely — TipTap owns its own DOM
- * subtree inside the container div, the same safe pattern any non-Preact
- * library (Quill, CodeMirror, etc.) uses to coexist with a VDOM framework.
- *
- * Output is a plain HTML string via editor.getHTML() — the exact same
- * format the backend already expects for html_body. {{variable}} tokens
- * are inserted as literal text, so the existing variable-detection regex
- * and render engine need zero changes.
- */
-
 interface RichTextEditorProps {
   value: string
   onChange: (html: string) => void
@@ -109,14 +83,6 @@ export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorP
 
     editorRef.current = editor
     return () => editor.destroy()
-    // Mount once — the editor then owns its own content/undo history.
-    // Safe only because both callers (TemplateNew/TemplateEdit) already gate
-    // rendering this component until `value` holds its real starting content
-    // — TemplateNew starts empty, TemplateEdit waits for the fetch to finish
-    // before mounting ChannelFields at all. If a future caller ever renders
-    // this before its real value is known, this will need a second effect
-    // that calls editor.commands.setContent() when `value` changes externally.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const run = (fn: (editor: Editor) => void) => {
@@ -130,7 +96,7 @@ export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorP
   const onFileChosen = async (e: Event) => {
     const input = e.target as HTMLInputElement
     const file = input.files?.[0]
-    input.value = '' // allow picking the same file again later
+    input.value = ''
     if (!file) return
 
     setUploadError(null)

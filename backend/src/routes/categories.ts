@@ -13,24 +13,10 @@ import type { AuthEnv } from '../middleware/dashboardAuth.js'
 import { hasProjectAccess } from '../lib/access.js'
 import type { AuthUser } from '../middleware/dashboardAuth.js'
 
-// Mounted at /categories — global, not scoped to a project. A template from
-// any project can be attached to any category; each attachment carries its
-// own project_id since template_key is only unique within a project.
-// Category metadata is visible to any authenticated user, but the endpoints
-// that read/modify a specific project's templates enforce project access.
 export const categoriesRoute = new Hono<AuthEnv>()
 
 type RequestedTemplate = { project_id: string; template_key: string }
 
-/**
- * Turns the (project_id, template_key) pairs a caller asked for into storable
- * attachments. Every distinct project is access-checked before any of its
- * templates are read, so a caller can never attach — or probe for the
- * existence of — a template in a project they can't see. Duplicates in the
- * request collapse to one attachment.
- *
- * Returns either the resolved attachments or the error to send back.
- */
 async function resolveAttachments(
   user: AuthUser,
   requested: RequestedTemplate[]
@@ -42,7 +28,6 @@ async function resolveAttachments(
     }
   }
 
-  // One query for every requested template rather than one per template.
   const templates = await getDb()
     .collection<Template>('templates')
     .find({

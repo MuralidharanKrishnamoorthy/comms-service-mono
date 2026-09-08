@@ -1,7 +1,7 @@
 import { getDb } from '../db.js';
 const MAX_ATTEMPTS = 5;
 const BASE_DELAY_SECONDS = 30;
-const MAX_DELAY_SECONDS = 30 * 60; // cap backoff at 30 minutes
+const MAX_DELAY_SECONDS = 30 * 60;
 export async function createMessageLog(input) {
     const db = getDb();
     const log = {
@@ -18,11 +18,6 @@ export async function markSent(logId, providerMessageId) {
     const db = getDb();
     await db.collection('message_logs').updateOne({ _id: logId }, { $set: { status: 'sent', provider_message_id: providerMessageId, updated_at: new Date() } });
 }
-/**
- * Records a failed attempt. Below MAX_ATTEMPTS, schedules a retry with
- * exponential backoff and keeps status "pending" so the sweep picks it back
- * up. At MAX_ATTEMPTS, marks it permanently "failed" — no further retries.
- */
 export async function markFailedAndScheduleRetry(logId, attemptsSoFar) {
     const db = getDb();
     const attempts = attemptsSoFar + 1;

@@ -6,12 +6,6 @@ import type { Template } from '../models/template.js'
 
 const SWEEP_INTERVAL_MS = 30_000
 
-/**
- * Every SWEEP_INTERVAL_MS, re-attempts any message_logs row that's still
- * "pending" and whose next_retry_at has passed. This is the entire retry
- * mechanism — no queue, no external worker, just this interval against
- * the database we already have.
- */
 export function startRetrySweep() {
   setInterval(() => {
     runRetrySweep().catch((err) => console.error('Retry sweep failed:', err))

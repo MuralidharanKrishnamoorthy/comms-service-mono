@@ -1,10 +1,5 @@
 import { sign, verify } from 'hono/jwt'
 
-// Dashboard session tokens. This is completely separate from the
-// "Authorization: Bearer <api_key>" scheme used by consuming apps on
-// /v1/notifications/send — different secret, different transport (httpOnly
-// cookie), no shared code path.
-
 const configured = process.env.DASH_JWT_SECRET
 if (!configured) {
   console.warn(
@@ -14,11 +9,10 @@ if (!configured) {
 }
 const JWT_SECRET = configured || 'dev-insecure-dashboard-secret-change-me'
 
-// 8-hour sessions.
 const SESSION_TTL_SECONDS = 8 * 60 * 60
 
 export interface SessionClaims {
-  sub: string // user _id
+  sub: string
   role: string
   iat: number
   exp: number
@@ -37,7 +31,6 @@ export async function verifySession(token: string): Promise<SessionClaims | null
   try {
     return (await verify(token, JWT_SECRET, 'HS256')) as unknown as SessionClaims
   } catch {
-    // Expired, malformed, or bad signature — all treated as "not authenticated".
     return null
   }
 }

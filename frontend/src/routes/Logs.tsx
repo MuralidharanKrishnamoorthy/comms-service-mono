@@ -16,13 +16,10 @@ export function Logs(_props: { path?: string }) {
   const [loading, setLoading] = useState(true)
   const [unreachable, setUnreachable] = useState(false)
 
-  // Local to this page so "All projects" ('') doesn't clobber the global
-  // selection other pages depend on. Defaults to every project.
   const [projectFilter, setProjectFilter] = useState('')
   const [status, setStatus] = useState('')
   const [channel, setChannel] = useState('')
-  // Categories are global; used to build the filter dropdown and to resolve
-  // which template keys belong to the chosen category.
+
   const [categories, setCategories] = useState<Category[]>([])
   const [categoryFilter, setCategoryFilter] = useState('')
 
@@ -38,13 +35,12 @@ export function Logs(_props: { path?: string }) {
       setLoading(false)
       return
     }
-    // '' means every project — fan out one request per project and merge,
-    // newest first, since the backend only lists logs one project at a time.
+
     const targets = projectFilter ? [projectFilter] : projects.map((p) => p._id)
     let cancelled = false
     setLoading(true)
     setUnreachable(false)
-    // Only append params that are actually set (handled inside listLogs).
+
     const filters = { status: status || undefined, channel: channel || undefined }
     Promise.all(targets.map((pid) => listLogs(pid, filters)))
       .then((batches) => {
@@ -67,8 +63,6 @@ export function Logs(_props: { path?: string }) {
     }
   }, [projectFilter, projects, status, channel])
 
-  // Category is filtered in the browser. A category can span projects, so match
-  // on project_id + template_key together, not the key alone.
   const categoryKeys = categoryFilter
     ? new Set(
         categories
@@ -91,10 +85,7 @@ export function Logs(_props: { path?: string }) {
 
   return (
     <div>
-      <PageHeader
-        title="Notification Logs"
-        // subtitle={`Send history for ${selectedProject.name} · newest first, up to 200 rows.`}
-      />
+      <PageHeader title="Notification Logs" />
 
       {unreachable && <ApiBanner base={API_BASE} />}
 
@@ -188,10 +179,6 @@ export function Logs(_props: { path?: string }) {
               </tr>
             ) : (
               visibleLogs.map((log) => (
-                // The row goes to the project this send belongs to; the
-                // template key is the one exception and stopPropagations to
-                // reach the template instead. Selecting the project as we leave
-                // keeps the rest of the app pointed at what you just opened.
                 <tr
                   key={log._id}
                   class="clickable"
@@ -208,10 +195,6 @@ export function Logs(_props: { path?: string }) {
                   }}
                 >
                   <td>
-                    {/* The template page resolves this key against the selected
-                        project, so point it at the row's own project first —
-                        under "All projects" the row may belong to another one.
-                        The link remembers to come back here. */}
                     <button
                       type="button"
                       class="cell-link mono"
@@ -231,9 +214,7 @@ export function Logs(_props: { path?: string }) {
                       {log.template_key}
                     </button>
                   </td>
-                  {/* Resolved from the row's own project_id rather than assumed
-                      from the selected project, so the name always describes
-                      the template this send actually used. */}
+
                   <td class="cell-muted">{projectName(log.project_id)}</td>
                   <td>
                     <span class="chip">{log.channel}</span>

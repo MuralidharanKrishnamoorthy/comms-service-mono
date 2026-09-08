@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 export const UPLOADS_DIR = path.join(__dirname, '..', '..', 'uploads')
 
-const MAX_BYTES = 5 * 1024 * 1024 // 5MB
+const MAX_BYTES = 5 * 1024 * 1024
 const ALLOWED_TYPES: Record<string, string> = {
   'image/png': '.png',
   'image/jpeg': '.jpg',
@@ -16,10 +16,6 @@ const ALLOWED_TYPES: Record<string, string> = {
   'image/svg+xml': '.svg',
 }
 
-// Mounted at /uploads. Images inserted into an email template's body are
-// uploaded here as real files and referenced by URL — inline base64 data
-// URIs bloat the stored template and get stripped by several email clients,
-// so a hosted URL is the only approach that actually works for real email.
 export const uploadsRoute = new Hono()
 
 uploadsRoute.post('/', async (c) => {

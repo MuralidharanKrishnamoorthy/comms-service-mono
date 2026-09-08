@@ -2,14 +2,9 @@ import { getDb } from '../db.js'
 import { hashPassword } from './password.js'
 import type { User } from '../models/user.js'
 
-// Ensures at least one admin exists so the dashboard is reachable on a fresh DB.
-// Credentials come from env, falling back to a loud dev default. Runs once at
-// startup and does nothing if any user already exists.
 export async function seedAdmin(): Promise<void> {
   const db = getDb()
 
-  // Backfill: any user created before project_ids existed (e.g. an earlier
-  // seeded admin) gets an empty array, so list/access code can rely on it.
   await db
     .collection<User>('users')
     .updateMany({ project_ids: { $exists: false } }, { $set: { project_ids: [] } })
@@ -28,9 +23,7 @@ export async function seedAdmin(): Promise<void> {
     role: 'admin',
     status: 'active',
     project_ids: [],
-    // Admins never carry the flag — the Profile page has no password section
-    // for them, so a set flag would surface a dead-end notice. (Do change the
-    // seeded default password via an admin edit or a fresh admin account.)
+
     must_change_password: false,
     created_at: now,
     updated_at: now,

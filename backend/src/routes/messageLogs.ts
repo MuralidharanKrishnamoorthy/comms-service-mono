@@ -5,7 +5,6 @@ import type { MessageLog } from '../models/messageLog.js'
 import type { AuthEnv } from '../middleware/dashboardAuth.js'
 import { hasProjectAccess } from '../lib/access.js'
 
-// Mounted at /projects/:projectId/logs — dashboard view of send history.
 export const messageLogsRoute = new Hono<AuthEnv>()
 
 messageLogsRoute.get('/', async (c) => {

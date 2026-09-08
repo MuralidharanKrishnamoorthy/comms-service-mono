@@ -15,8 +15,6 @@ import { Logs } from './routes/Logs'
 import { UsersAccess, RoleBadge } from './routes/UsersAccess'
 import { Profile } from './routes/Profile'
 
-// preact-router's own Link type omits `href` under this preact version's JSX
-// typings, so re-type the reactive match-Link with the props we actually use.
 const NavLink = MatchLink as unknown as FunctionComponent<{
   href: string
   activeClassName?: string
@@ -84,7 +82,7 @@ function initials(name: string): string {
 function Topbar() {
   const { user, logout } = useAuth()
   if (!user) return null
-  // Open Profile, remembering the current page so it can offer a "Back to …" link.
+
   const openProfile = () => route(`/profile?from=${encodeURIComponent(getCurrentUrl())}`)
 
   return (

@@ -1,10 +1,10 @@
 import { getDb } from '../db.js';
 import { hashPassword } from './password.js';
-// Ensures at least one admin exists so the dashboard is reachable on a fresh DB.
-// Credentials come from env, falling back to a loud dev default. Runs once at
-// startup and does nothing if any user already exists.
 export async function seedAdmin() {
     const db = getDb();
+    await db
+        .collection('users')
+        .updateMany({ project_ids: { $exists: false } }, { $set: { project_ids: [] } });
     const count = await db.collection('users').estimatedDocumentCount();
     if (count > 0)
         return;
@@ -17,6 +17,8 @@ export async function seedAdmin() {
         password_hash: hashPassword(password),
         role: 'admin',
         status: 'active',
+        project_ids: [],
+        must_change_password: false,
         created_at: now,
         updated_at: now,
     });

@@ -2,10 +2,6 @@ import type { ComponentChildren } from 'preact'
 import { useEffect, useRef, useState } from 'preact/hooks'
 import type { MessageStatus } from '../types'
 
-// ---------- Dropdown (native <select>'s open list can't be styled — its
-// popup is rendered by the OS outside CSS reach in Chromium/Windows. This
-// renders the whole thing in-page instead, so the open menu keeps the same
-// rounded corners as everything else.) ----------
 export interface DropdownOption {
   value: string
   label: string
@@ -26,11 +22,7 @@ export function Dropdown({
   disabled?: boolean
   placeholder?: string
   class?: string
-  /**
-   * Pass this to make the dropdown clearable: while something is selected an ×
-   * appears in the trigger, so resetting doesn't need a button of its own
-   * sitting beside the control.
-   */
+
   onClear?: () => void
 }) {
   const [open, setOpen] = useState(false)
@@ -62,8 +54,7 @@ export function Dropdown({
         onClick={() => setOpen((o) => !o)}
       >
         <span class={selected ? '' : 'dropdown-placeholder'}>{selected?.label ?? placeholder ?? ''}</span>
-        {/* A span, not a button: the trigger is already a <button> and nesting
-            one inside it is invalid. Same approach as MultiSelect's chip ×. */}
+
         {onClear && value && !disabled && (
           <span
             role="button"

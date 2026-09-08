@@ -331,8 +331,6 @@ function UserModal({
           </div>
         )}
 
-        {/* Project access — hidden for admin, who implicitly has all projects.
-            Full width on Edit (its own row); shares Role's row on Add. */}
         {role !== 'admin' && (
           <div class={`field ${mode === 'edit' ? 'full' : ''}`}>
             <label>

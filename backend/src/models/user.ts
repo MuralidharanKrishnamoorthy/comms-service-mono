@@ -1,33 +1,24 @@
 import { z } from 'zod'
 import type { ObjectId } from 'mongodb'
 
-// admin is unrestricted; developer / ba / tester are all scoped IDENTICALLY to
-// their project_ids. Authorization logic must branch only on
-// `role === 'admin'` vs everything else — never a per-role allowlist. The three
-// non-admin roles differ only in their UI label/badge.
 export const ROLES = ['admin', 'developer', 'ba', 'tester'] as const
 export type Role = (typeof ROLES)[number]
 
 export interface User {
   _id?: ObjectId
-  email: string // stored lowercased; unique
+  email: string
   name: string
-  password_hash: string // NEVER returned by any API
+  password_hash: string
   role: Role
   status: 'active' | 'disabled'
-  // Projects this user may access. Always empty for admins — their access is
-  // implicit and unrestricted, enforced by branching on role, not this field.
+
   project_ids: ObjectId[]
-  // true while the account is still on the temporary password an admin set at
-  // create/reset time. Cleared to false once the user sets their own password
-  // via POST /auth/me/password. Purely informational (drives a notice) — it
-  // never blocks access. Missing on pre-existing accounts → treated as false.
+
   must_change_password?: boolean
   created_at: Date
   updated_at: Date
 }
 
-// What the API is allowed to expose about a user — no password material, ever.
 export interface SafeUser {
   _id: ObjectId
   email: string
@@ -36,17 +27,11 @@ export interface SafeUser {
   status: 'active' | 'disabled'
   created_at: Date
   updated_at: Date
-  project_ids: string[] // membership project ids (empty for admin)
+  project_ids: string[]
 }
 
 const objectIdString = z.string().regex(/^[a-fA-F0-9]{24}$/, 'Invalid id')
 
-// Password strength rules for SELF-SERVICE password changes: at least 8
-// characters and at least one number. Exported so both the endpoint and its
-// tests share one source of truth.
-// NOTE: admin create/reset (createUserSchema / updateUserSchema below) currently
-// enforce only the 8-char minimum, not the digit rule — see the discrepancy note
-// in the PR description.
 export const passwordSchema = z
   .string()
   .min(8, 'Password must be at least 8 characters')
@@ -56,7 +41,6 @@ export const changePasswordSchema = z.object({
   newPassword: passwordSchema,
 })
 
-// Password is admin-set. Required on create.
 export const createUserSchema = z.object({
   name: z.string().min(1).max(120),
   email: z.string().email().max(200),
@@ -65,8 +49,6 @@ export const createUserSchema = z.object({
   project_ids: z.array(objectIdString).optional(),
 })
 
-// All fields optional; password OMITTED = leave unchanged, PRESENT = reset it.
-// At least one field must be provided.
 export const updateUserSchema = z
   .object({
     name: z.string().min(1).max(120).optional(),

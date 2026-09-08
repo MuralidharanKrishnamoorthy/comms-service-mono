@@ -1,10 +1,5 @@
 import { randomBytes, createHash } from 'node:crypto'
 
-/**
- * API keys look like: csvc_<48 hex chars>
- * Only the SHA-256 hash is ever stored — the plaintext is returned once, at creation.
- */
-
 export interface GeneratedApiKey {
   plaintext: string
   hash: string

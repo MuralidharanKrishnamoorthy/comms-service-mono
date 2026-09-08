@@ -5,13 +5,10 @@ import { hashPassword } from '../lib/password.js'
 import { dashboardAuth, requireAdmin, type AuthEnv } from '../middleware/dashboardAuth.js'
 import { createUserSchema, updateUserSchema, type User } from '../models/user.js'
 
-// Mounted at /users — all admin-only. dashboardAuth + requireAdmin are applied
-// here so the guarantees travel with the route regardless of mount order.
 export const usersRoute = new Hono<AuthEnv>()
 usersRoute.use('*', dashboardAuth)
 usersRoute.use('*', requireAdmin)
 
-// Shape returned to the client — NEVER includes password_hash.
 function safeUser(user: User) {
   return {
     _id: user._id,
@@ -19,23 +16,19 @@ function safeUser(user: User) {
     email: user.email,
     role: user.role,
     status: user.status,
-    // Defensive: users seeded/created before project_ids existed won't have the
-    // field — treat a missing value as "no project access".
+
     project_ids: (user.project_ids ?? []).map((id) => id.toString()),
     created_at: user.created_at,
     updated_at: user.updated_at,
   }
 }
 
-// Resolve what to store in User.project_ids for a create/update. Admins always
-// end up with none — their access is implicit and unrestricted.
 function resolveProjectIds(role: string, projectIds: string[] | undefined): ObjectId[] | undefined {
   if (role === 'admin') return []
-  if (!projectIds) return undefined // undefined = leave as-is
+  if (!projectIds) return undefined
   return projectIds.map((pid) => new ObjectId(pid))
 }
 
-// POST /users — create a user (admin sets the password).
 usersRoute.post('/', async (c) => {
   const body = await c.req.json().catch(() => null)
   const parsed = createUserSchema.safeParse(body)
@@ -52,9 +45,7 @@ usersRoute.post('/', async (c) => {
     role: parsed.data.role,
     status: 'active',
     project_ids: resolveProjectIds(parsed.data.role, parsed.data.project_ids) ?? [],
-    // Admin-set password is temporary until the user changes it themselves.
-    // Admins never carry the flag — they don't change passwords via the Profile
-    // page, so a lingering flag would only surface a dead-end notice.
+
     must_change_password: parsed.data.role !== 'admin',
     created_at: now,
     updated_at: now,
@@ -74,14 +65,11 @@ usersRoute.post('/', async (c) => {
   return c.json(safeUser({ ...user, _id: insertedId }), 201)
 })
 
-// GET /users — list users (never password material).
 usersRoute.get('/', async (c) => {
   const users = await getDb().collection<User>('users').find({}).sort({ created_at: 1 }).toArray()
   return c.json(users.map(safeUser))
 })
 
-// PATCH /users/:id — update name/email/role/status, optional password reset,
-// optional membership replacement.
 usersRoute.patch('/:id', async (c) => {
   const id = c.req.param('id')
   if (!ObjectId.isValid(id)) return c.json({ error: 'Invalid user id' }, 400)
@@ -104,9 +92,7 @@ usersRoute.patch('/:id', async (c) => {
   if (parsed.data.email !== undefined) set.email = parsed.data.email.toLowerCase().trim()
   if (parsed.data.role !== undefined) set.role = parsed.data.role
   if (parsed.data.status !== undefined) set.status = parsed.data.status
-  // password PRESENT = reset the hash; OMITTED = leave the existing one untouched.
-  // An admin reset drops a non-admin user back onto a temporary password; admin
-  // accounts never carry the flag (no self-service password page for them).
+
   if (parsed.data.password !== undefined) {
     set.password_hash = hashPassword(parsed.data.password)
     set.must_change_password = effectiveRole !== 'admin'

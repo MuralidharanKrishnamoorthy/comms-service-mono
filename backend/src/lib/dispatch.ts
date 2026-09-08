@@ -4,13 +4,6 @@ import { stubSmsProvider, stubPushProvider } from '../providers/stub.js'
 import type { ChannelContent } from '../models/template.js'
 import type { Channel } from '../models/project.js'
 
-/**
- * Renders the given channel content with `data` and hands it to the matching
- * provider. Shared by the send endpoint (first attempt) and the retry sweep
- * (subsequent attempts) so both paths render and send identically.
- *
- * Throws on provider failure — caller decides how to record that.
- */
 export async function dispatchSend(
   channel: Channel,
   content: ChannelContent,

@@ -10,19 +10,22 @@ if (!dbName) {
 const client = new MongoClient(uri);
 let db = null;
 async function ensureIndexes(database) {
-    await database.collection('projects').createIndex({ api_key_hash: 1 }, { unique: true });
+    try {
+        await database.collection('projects').dropIndex('api_key_hash_1');
+    }
+    catch {
+    }
     await database.collection('templates').createIndex({ project_id: 1, template_key: 1 }, { unique: true });
     await database.collection('message_logs').createIndex({ project_id: 1, created_at: -1 });
     await database.collection('message_logs').createIndex({ status: 1, next_retry_at: 1 });
     await database.collection('message_logs').createIndex({ provider_message_id: 1 });
     await database.collection('categories').createIndex({ name: 1 }, { unique: true });
-    await database.collection('template_categories').createIndex({ category_id: 1, project_id: 1, template_key: 1 }, { unique: true });
-    // Dashboard authorization: users + project membership.
+    await database.collection('categories').createIndex({ 'templates.template_id': 1 });
     await database.collection('users').createIndex({ email: 1 }, { unique: true });
-    await database
-        .collection('project_members')
-        .createIndex({ user_id: 1, project_id: 1 }, { unique: true });
-    await database.collection('project_members').createIndex({ user_id: 1 });
+    await database.collection('users').createIndex({ project_ids: 1 });
+    await database.collection('api_keys').createIndex({ project_id: 1 });
+    await database.collection('api_keys').createIndex({ project_id: 1, created_by: 1 });
+    await database.collection('api_keys').createIndex({ key_hash: 1 }, { unique: true });
 }
 export async function connectDb() {
     if (db)

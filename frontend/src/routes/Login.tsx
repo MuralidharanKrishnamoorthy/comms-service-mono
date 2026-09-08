@@ -3,10 +3,6 @@ import { route } from 'preact-router'
 import { useAuth } from '../auth'
 import { ApiError, API_BASE } from '../api'
 
-// Hand-drawn inline icons, matching the pattern used everywhere else in this
-// app (see components/ui.tsx BackLink, app.tsx NavIcon) rather than pulling
-// in an icon library — lucide-react itself depends on React internals this
-// Preact app doesn't have installed.
 function iconProps() {
   return {
     viewBox: '0 0 24 24',
@@ -73,9 +69,7 @@ export function Login() {
     setSubmitting(true)
     try {
       await login(email.trim(), password)
-      // On success the AuthProvider sets the user and the app renders the shell.
-      // Always land on Projects — the URL may still point at wherever the last
-      // session was (e.g. /admin/users), which a non-admin can't open.
+
       route('/projects', true)
     } catch (err) {
       if (err instanceof ApiError) {

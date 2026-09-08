@@ -22,8 +22,6 @@ import {
 } from '../components/ui'
 import { useStore } from '../store'
 
-// Deterministic accent per category, so the same name always gets the same
-// color across reloads without persisting anything.
 const PALETTE = ['amber', 'terracotta', 'gold', 'sienna', 'copper', 'umber']
 function paletteFor(name: string): string {
   let hash = 0
@@ -39,7 +37,6 @@ function FolderIcon() {
   )
 }
 
-
 export function Categories(_props: { path?: string }) {
   const { projects } = useStore()
   const [categories, setCategories] = useState<Category[]>([])
@@ -50,8 +47,7 @@ export function Categories(_props: { path?: string }) {
   const [deleting, setDeleting] = useState<Category | null>(null)
   const [busy, setBusy] = useState(false)
   const [banner, setBanner] = useState<string | null>(null)
-  // '' = every project. Filtered in the browser: the list response already
-  // carries each attachment's project_id, so there's nothing to re-fetch.
+
   const [projectFilter, setProjectFilter] = useState('')
 
   const load = () => {
@@ -83,9 +79,6 @@ export function Categories(_props: { path?: string }) {
     }
   }
 
-  // A category matches a project if any of its templates belongs to it. An
-  // empty category matches only the unfiltered view — there's no project it
-  // could be said to belong to.
   const visible = projectFilter
     ? categories.filter((cat) => cat.templates?.some((t) => t.project_id === projectFilter))
     : categories
@@ -142,8 +135,7 @@ export function Categories(_props: { path?: string }) {
               </div>
               <div class="cat-card-body">
                 <div class="cat-card-name">{cat.name}</div>
-                {/* While filtered, count only the matching project's templates
-                    — "6 templates" would be a lie about the project in view. */}
+
                 <div class="cat-card-count">
                   {(() => {
                     if (!projectFilter) {
@@ -154,10 +146,7 @@ export function Categories(_props: { path?: string }) {
                   })()}
                 </div>
               </div>
-              {/* Icon buttons, not text: the grid's columns bottom out at
-                  240px and "Rename"/"Delete" labels don't fit beside the name.
-                  stopPropagation on each — the whole card navigates, and these
-                  must not trigger that. */}
+
               <div class="cat-card-actions">
                 <button
                   type="button"
@@ -536,8 +525,7 @@ function CreateCategoryModal({ onClose, onCreated }: { onClose: () => void; onCr
             autoFocus
             placeholder="e.g. MARKETING"
             class={nameError ? 'invalid' : ''}
-            // Upper-cased as you type, so the field shows exactly what gets
-            // stored. The server upper-cases too — this is only the preview.
+
             onInput={(e) => {
               setName((e.target as HTMLInputElement).value.toUpperCase())
               setNameError(null)

@@ -2,7 +2,6 @@ import { Hono } from 'hono';
 import { ObjectId } from 'mongodb';
 import { getDb } from '../db.js';
 import { hasProjectAccess } from '../lib/access.js';
-// Mounted at /projects/:projectId/logs — dashboard view of send history.
 export const messageLogsRoute = new Hono();
 messageLogsRoute.get('/', async (c) => {
     const projectId = c.req.param('projectId');

@@ -5,15 +5,10 @@ import { dashboardAuth, requireAdmin, type AuthEnv } from '../middleware/dashboa
 import type { User } from '../models/user.js'
 import type { Project } from '../models/project.js'
 
-// Mounted at /projects/:projectId/members — admin-only management of who can
-// access a single project. (User-centric membership editing also happens via
-// PATCH /users/:id with project_ids; this is the project-centric view.) Access
-// is stored on the user document itself (User.project_ids), not a join table.
 export const membersRoute = new Hono<AuthEnv>()
 membersRoute.use('*', dashboardAuth)
 membersRoute.use('*', requireAdmin)
 
-// GET /projects/:projectId/members — users who can access this project.
 membersRoute.get('/', async (c) => {
   const projectId = c.req.param('projectId')
   if (!projectId || !ObjectId.isValid(projectId)) return c.json({ error: 'Invalid projectId' }, 400)
@@ -28,7 +23,6 @@ membersRoute.get('/', async (c) => {
   )
 })
 
-// POST /projects/:projectId/members  { user_id }
 membersRoute.post('/', async (c) => {
   const projectId = c.req.param('projectId')
   if (!projectId || !ObjectId.isValid(projectId)) return c.json({ error: 'Invalid projectId' }, 400)
@@ -57,7 +51,6 @@ membersRoute.post('/', async (c) => {
   return c.json({ added: true }, 201)
 })
 
-// DELETE /projects/:projectId/members/:userId
 membersRoute.delete('/:userId', async (c) => {
   const projectId = c.req.param('projectId')
   const userId = c.req.param('userId')

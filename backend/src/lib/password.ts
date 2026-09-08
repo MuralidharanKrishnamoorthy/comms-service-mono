@@ -1,9 +1,5 @@
 import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto'
 
-// Password hashing using Node's built-in scrypt — no external dependency.
-// Stored format: "scrypt$<saltHex>$<hashHex>". password_hash is never returned
-// by any API; this module is the only place that reads or writes it.
-
 const KEYLEN = 64
 
 export function hashPassword(plaintext: string): string {
