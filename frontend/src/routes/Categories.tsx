@@ -509,7 +509,7 @@ function CreateCategoryModal({ onClose, onCreated }: { onClose: () => void; onCr
 
         <div class="field">
           <label>
-            Add templates <span class="hint">(optional — you can add more later)</span>
+            Add projects <span class="hint">(optional — you can add more later)</span>
           </label>
           {projects.length === 0 ? (
             <p class="subtle" style={{ margin: 0 }}>No projects exist yet.</p>
