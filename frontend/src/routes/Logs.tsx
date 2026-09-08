@@ -10,15 +10,15 @@ const STATUSES: MessageStatus[] = ['sent', 'failed']
 const CHANNELS = ['email', 'sms', 'push']
 
 export function Logs(_props: { path?: string }) {
-  const { selectedProjectId, projects, setSelectedProjectId } = useStore()
+  const { projects, setSelectedProjectId } = useStore()
   const projectName = (id: string) => projects.find((p) => p._id === id)?.name ?? '—'
   const [logs, setLogs] = useState<MessageLog[]>([])
   const [loading, setLoading] = useState(true)
   const [unreachable, setUnreachable] = useState(false)
 
   // Local to this page so "All projects" ('') doesn't clobber the global
-  // selection other pages depend on. Defaults to the current global project.
-  const [projectFilter, setProjectFilter] = useState(selectedProjectId ?? '')
+  // selection other pages depend on. Defaults to every project.
+  const [projectFilter, setProjectFilter] = useState('')
   const [status, setStatus] = useState('')
   const [channel, setChannel] = useState('')
   // Categories are global; used to build the filter dropdown and to resolve
@@ -105,6 +105,7 @@ export function Logs(_props: { path?: string }) {
             class="project-select"
             value={projectFilter}
             onChange={setProjectFilter}
+            onClear={() => setProjectFilter('')}
             options={[
               { value: '', label: 'All projects' },
               ...projects.map((p) => ({ value: p._id, label: p.name })),
@@ -116,6 +117,7 @@ export function Logs(_props: { path?: string }) {
           <Dropdown
             value={categoryFilter}
             onChange={setCategoryFilter}
+            onClear={() => setCategoryFilter('')}
             options={[
               { value: '', label: 'All categories' },
               ...categories.map((c) => ({ value: c._id, label: c.name })),
@@ -127,6 +129,7 @@ export function Logs(_props: { path?: string }) {
           <Dropdown
             value={status}
             onChange={setStatus}
+            onClear={() => setStatus('')}
             options={[{ value: '', label: 'All statuses' }, ...STATUSES.map((s) => ({ value: s, label: s }))]}
           />
         </div>
@@ -135,16 +138,18 @@ export function Logs(_props: { path?: string }) {
           <Dropdown
             value={channel}
             onChange={setChannel}
+            onClear={() => setChannel('')}
             options={[{ value: '', label: 'All channels' }, ...CHANNELS.map((c) => ({ value: c, label: c }))]}
           />
         </div>
-        {(status || channel || categoryFilter) && (
+        {(projectFilter || categoryFilter || status || channel) && (
           <button
             class="btn btn-sm"
             onClick={() => {
+              setProjectFilter('')
+              setCategoryFilter('')
               setStatus('')
               setChannel('')
-              setCategoryFilter('')
             }}
           >
             Clear filters
