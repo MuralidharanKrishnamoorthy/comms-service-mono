@@ -9,8 +9,17 @@ import { formatDate } from '../util'
 const STATUSES: MessageStatus[] = ['sent', 'failed']
 const CHANNELS = ['email', 'sms', 'push']
 
+function InfoIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 11v5M12 8h.01" />
+    </svg>
+  )
+}
+
 export function Logs(_props: { path?: string }) {
-  const { selectedProject, projects } = useStore()
+  const { selectedProject, projects, setSelectedProjectId } = useStore()
   const projectName = (id: string) => projects.find((p) => p._id === id)?.name ?? '—'
   const [logs, setLogs] = useState<MessageLog[]>([])
   const [loading, setLoading] = useState(true)
@@ -122,20 +131,21 @@ export function Logs(_props: { path?: string }) {
               <th>Recipient</th>
               <th>Status</th>
               <th>Created</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr class="state-row">
-                <td colSpan={6}>Loading…</td>
+                <td colSpan={7}>Loading…</td>
               </tr>
             ) : unreachable ? (
               <tr class="state-row">
-                <td colSpan={6}>Couldn't load logs.</td>
+                <td colSpan={7}>Couldn't load logs.</td>
               </tr>
             ) : logs.length === 0 ? (
               <tr class="state-row">
-                <td colSpan={6}>
+                <td colSpan={7}>
                   {status || channel || templateKey
                     ? 'No sends match these filters.'
                     : 'No sends yet for this project.'}
@@ -143,7 +153,20 @@ export function Logs(_props: { path?: string }) {
               </tr>
             ) : (
               logs.map((log) => (
-                <tr key={log._id} class="clickable" onClick={() => setSelected(log)}>
+                // The row goes to the project this send belongs to. The two
+                // exceptions carry their own stopPropagation: the template key
+                // (goes to the template) and the details button (opens the
+                // drawer). Selecting the project as we leave keeps the rest of
+                // the app pointed at what you just opened.
+                <tr
+                  key={log._id}
+                  class="clickable"
+                  title={`Open project ${projectName(log.project_id)}`}
+                  onClick={() => {
+                    setSelectedProjectId(log.project_id)
+                    route(`/projects/${log.project_id}`)
+                  }}
+                >
                   <td>
                     {/* Goes to the template, not the send detail — so
                         stopPropagation, or the row's drawer opens too. Logs are
@@ -173,6 +196,22 @@ export function Logs(_props: { path?: string }) {
                     <StatusBadge status={log.status} />
                   </td>
                   <td class="cell-faint">{formatDate(log.created_at)}</td>
+                  <td style={{ textAlign: 'right' }}>
+                    {/* The row navigates now, so the send detail (payload,
+                        provider id, attempts) needs its own way in. */}
+                    <button
+                      type="button"
+                      class="icon-btn"
+                      title="Send details"
+                      aria-label={`Send details for ${log.template_key}`}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setSelected(log)
+                      }}
+                    >
+                      <InfoIcon />
+                    </button>
+                  </td>
                 </tr>
               ))
             )}
