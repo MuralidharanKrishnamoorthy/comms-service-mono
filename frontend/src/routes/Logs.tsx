@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'preact/hooks'
+import { route } from 'preact-router'
 import { useStore } from '../store'
 import { ApiError, API_BASE, listLogs } from '../api'
 import type { MessageLog, MessageStatus } from '../types'
@@ -9,7 +10,8 @@ const STATUSES: MessageStatus[] = ['sent', 'failed']
 const CHANNELS = ['email', 'sms', 'push']
 
 export function Logs(_props: { path?: string }) {
-  const { selectedProject } = useStore()
+  const { selectedProject, projects } = useStore()
+  const projectName = (id: string) => projects.find((p) => p._id === id)?.name ?? '—'
   const [logs, setLogs] = useState<MessageLog[]>([])
   const [loading, setLoading] = useState(true)
   const [unreachable, setUnreachable] = useState(false)
@@ -115,10 +117,10 @@ export function Logs(_props: { path?: string }) {
           <thead>
             <tr>
               <th>Template</th>
+              <th>Project</th>
               <th>Channel</th>
               <th>Recipient</th>
               <th>Status</th>
-              <th>Attempts</th>
               <th>Created</th>
             </tr>
           </thead>
@@ -142,7 +144,27 @@ export function Logs(_props: { path?: string }) {
             ) : (
               logs.map((log) => (
                 <tr key={log._id} class="clickable" onClick={() => setSelected(log)}>
-                  <td class="mono">{log.template_key}</td>
+                  <td>
+                    {/* Goes to the template, not the send detail — so
+                        stopPropagation, or the row's drawer opens too. Logs are
+                        already scoped to the selected project, so the template
+                        page resolves this key against the same project. */}
+                    <button
+                      type="button"
+                      class="cell-link mono"
+                      title={`Open template ${log.template_key}`}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        route(`/templates/${log.template_key}`)
+                      }}
+                    >
+                      {log.template_key}
+                    </button>
+                  </td>
+                  {/* Resolved from the row's own project_id rather than assumed
+                      from the selected project, so the name always describes
+                      the template this send actually used. */}
+                  <td class="cell-muted">{projectName(log.project_id)}</td>
                   <td>
                     <span class="chip">{log.channel}</span>
                   </td>
@@ -150,7 +172,6 @@ export function Logs(_props: { path?: string }) {
                   <td>
                     <StatusBadge status={log.status} />
                   </td>
-                  <td class="cell-muted">{log.attempts}</td>
                   <td class="cell-faint">{formatDate(log.created_at)}</td>
                 </tr>
               ))
@@ -163,7 +184,19 @@ export function Logs(_props: { path?: string }) {
         <Drawer title="Send detail" onClose={() => setSelected(null)}>
           <dl class="dl">
             <dt>Template key</dt>
-            <dd class="mono">{selected.template_key}</dd>
+            <dd>
+              <button
+                type="button"
+                class="cell-link mono"
+                title={`Open template ${selected.template_key}`}
+                onClick={() => route(`/templates/${selected.template_key}`)}
+              >
+                {selected.template_key}
+              </button>
+            </dd>
+
+            <dt>Project</dt>
+            <dd>{projectName(selected.project_id)}</dd>
 
             <dt>Channel</dt>
             <dd>

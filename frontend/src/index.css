@@ -750,6 +750,24 @@ tr.clickable:hover td {
   height: 15px;
 }
 
+/* An inline link inside a table cell — a <button> rather than an <a> because
+   routing is client-side, styled to read as a link so it's obvious the cell
+   goes somewhere different from the row's own click. */
+.cell-link {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: var(--accent-ink);
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cell-link:hover {
+  text-decoration: underline;
+}
+
 /* Round icon-only button for row/table actions (e.g. deleting an API key).
    Neutral until hovered, so a destructive action still has to be aimed at. */
 .icon-btn {
