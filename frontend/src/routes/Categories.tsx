@@ -41,6 +41,7 @@ function FolderIcon() {
 
 
 export function Categories(_props: { path?: string }) {
+  const { projects } = useStore()
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [unreachable, setUnreachable] = useState(false)
@@ -49,6 +50,9 @@ export function Categories(_props: { path?: string }) {
   const [deleting, setDeleting] = useState<Category | null>(null)
   const [busy, setBusy] = useState(false)
   const [banner, setBanner] = useState<string | null>(null)
+  // '' = every project. Filtered in the browser: the list response already
+  // carries each attachment's project_id, so there's nothing to re-fetch.
+  const [projectFilter, setProjectFilter] = useState('')
 
   const load = () => {
     setLoading(true)
@@ -79,6 +83,14 @@ export function Categories(_props: { path?: string }) {
     }
   }
 
+  // A category matches a project if any of its templates belongs to it. An
+  // empty category matches only the unfiltered view — there's no project it
+  // could be said to belong to.
+  const visible = projectFilter
+    ? categories.filter((cat) => cat.templates?.some((t) => t.project_id === projectFilter))
+    : categories
+  const filteredProjectName = projects.find((p) => p._id === projectFilter)?.name
+
   return (
     <div>
       <PageHeader
@@ -94,13 +106,36 @@ export function Categories(_props: { path?: string }) {
       {banner && <div class="banner-error" style={{ marginBottom: 12 }}>{banner}</div>}
       {unreachable && <ApiBanner base={API_BASE} />}
 
+      <div class="toolbar">
+        <div class="field toolbar-field" style={{ minWidth: 240 }}>
+          <label>Project</label>
+          <Dropdown
+            value={projectFilter}
+            onChange={setProjectFilter}
+            options={[
+              { value: '', label: 'All projects' },
+              ...projects.map((p) => ({ value: p._id, label: p.name })),
+            ]}
+          />
+        </div>
+        {projectFilter && (
+          <button class="btn btn-sm" onClick={() => setProjectFilter('')}>
+            Clear filter
+          </button>
+        )}
+      </div>
+
       {loading ? (
         <div class="empty">Loading…</div>
       ) : categories.length === 0 ? (
         <div class="empty">No categories yet — click New category to create one.</div>
+      ) : visible.length === 0 ? (
+        <div class="empty">
+          No categories hold a template from {filteredProjectName ?? 'this project'} yet.
+        </div>
       ) : (
         <div class="cat-card-grid">
-          {categories.map((cat) => (
+          {visible.map((cat) => (
             <div
               key={cat._id}
               class={`cat-card cat-accent-${paletteFor(cat.name)}`}
@@ -111,8 +146,16 @@ export function Categories(_props: { path?: string }) {
               </div>
               <div class="cat-card-body">
                 <div class="cat-card-name">{cat.name}</div>
+                {/* While filtered, count only the matching project's templates
+                    — "6 templates" would be a lie about the project in view. */}
                 <div class="cat-card-count">
-                  {cat.template_count} {cat.template_count === 1 ? 'template' : 'templates'}
+                  {(() => {
+                    if (!projectFilter) {
+                      return `${cat.template_count} ${cat.template_count === 1 ? 'template' : 'templates'}`
+                    }
+                    const here = cat.templates.filter((t) => t.project_id === projectFilter).length
+                    return `${here} of ${cat.template_count} ${cat.template_count === 1 ? 'template' : 'templates'}`
+                  })()}
                 </div>
               </div>
               {/* Icon buttons, not text: the grid's columns bottom out at

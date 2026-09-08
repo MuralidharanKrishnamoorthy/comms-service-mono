@@ -86,9 +86,20 @@ export interface CategoryWithAttached {
   hidden_count: number
 }
 
+// One attachment as it comes back on the category LIST — ids only, no template
+// name or channels. Enough to filter the list by project without a second
+// request; use CategoryWithAttached (GET /categories/:id) when you need detail.
+export interface CategoryTemplateRef {
+  project_id: string
+  template_id: string
+  template_key: string
+  created_at: string
+}
+
 export interface Category {
   _id: string
   name: string
+  templates: CategoryTemplateRef[]
   template_count: number
   created_at: string
 }
