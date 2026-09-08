@@ -45,5 +45,6 @@ export interface Category {
   _id?: ObjectId
   name: string
   templates: AttachedTemplate[]
+  created_by: ObjectId
   created_at: Date
 }

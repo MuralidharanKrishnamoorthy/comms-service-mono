@@ -60,17 +60,13 @@ async function resolveAttachments(
   return { ok: true, attachments: [...attachments.values()] }
 }
 
-/**
- * Whether this user may rename or delete a whole category. Categories are
- * global, so a non-admin could otherwise rename or destroy a grouping built
- * entirely out of projects they cannot even see. Admins may always act; anyone
- * else needs access to every project represented in the category — which makes
- * an empty category editable by anyone.
- */
-function canModifyCategory(user: AuthUser, category: Category): boolean {
+function ownsCategory(user: AuthUser, category: Category): boolean {
   if (user.role === 'admin') return true
-  const projectIds = [...new Set(category.templates.map((t) => t.project_id.toString()))]
-  return projectIds.every((projectId) => hasProjectAccess(user, projectId))
+  return !!category.created_by && category.created_by.equals(user._id)
+}
+
+function visibilityFilter(user: AuthUser): Record<string, unknown> {
+  return user.role === 'admin' ? {} : { created_by: user._id }
 }
 
 // Create a category, optionally with its first template attachments. Both land
@@ -93,10 +89,12 @@ categoriesRoute.post('/', async (c) => {
   const db = getDb()
   const category: Category = {
     // Category names are stored upper-case whatever the caller typed, so
-    // "Welcome", "welcome" and "WELCOME" are one category, not three — the
-    // unique index on `name` then enforces that for free.
+    // "Welcome", "welcome" and "WELCOME" are one category, not three. The
+    // unique index on { created_by, name } then enforces that per owner, so
+    // two users can each keep their own "LOGIN" without colliding.
     name: parsed.data.name.trim().toUpperCase(),
     templates: attachments,
+    created_by: c.get('user')._id,
     created_at: new Date(),
   }
 
@@ -108,15 +106,18 @@ categoriesRoute.post('/', async (c) => {
     )
   } catch (err) {
     if (err instanceof MongoServerError && err.code === 11000) {
-      return c.json({ error: `A category named "${category.name}" already exists` }, 409)
+      return c.json({ error: `You already have a category named "${category.name}"` }, 409)
     }
     throw err
   }
 })
 
-// List all categories with a live count of attached templates (across every project)
 categoriesRoute.get('/', async (c) => {
-  const categories = await getDb().collection<Category>('categories').find({}).sort({ name: 1 }).toArray()
+  const categories = await getDb()
+    .collection<Category>('categories')
+    .find(visibilityFilter(c.get('user')))
+    .sort({ name: 1 })
+    .toArray()
   return c.json(categories.map((cat) => ({ ...cat, template_count: cat.templates.length })))
 })
 
@@ -139,6 +140,8 @@ categoriesRoute.get('/:categoryId', async (c) => {
   if (!category) return c.json({ error: 'Category not found' }, 404)
 
   const user = c.get('user')
+  if (!ownsCategory(user, category)) return c.json({ error: 'Category not found' }, 404)
+
   const visible = category.templates.filter((t) => hasProjectAccess(user, t.project_id.toString()))
   const hiddenCount = category.templates.length - visible.length
 
@@ -196,15 +199,13 @@ categoriesRoute.patch('/:categoryId', async (c) => {
   if (!category) return c.json({ error: 'Category not found' }, 404)
 
   const user = c.get('user')
-  // Access to the category as it stands today...
-  if (!canModifyCategory(user, category)) {
-    return c.json({ error: 'This category holds templates from projects you cannot access' }, 403)
-  }
+  if (!ownsCategory(user, category)) return c.json({ error: 'Category not found' }, 404)
 
   const set: Partial<Category> = {}
   if (parsed.data.name !== undefined) set.name = parsed.data.name.trim().toUpperCase()
 
-  // ...and, separately, to every project in the set being written.
+  // Attachments are re-resolved so access is checked against every project in
+  // the set being written, not only the ones already attached.
   if (parsed.data.templates !== undefined) {
     const resolved = await resolveAttachments(user, parsed.data.templates)
     if (!resolved.ok) return c.json({ error: resolved.error }, resolved.status)
@@ -215,7 +216,7 @@ categoriesRoute.patch('/:categoryId', async (c) => {
     await db.collection<Category>('categories').updateOne({ _id: category._id }, { $set: set })
   } catch (err) {
     if (err instanceof MongoServerError && err.code === 11000) {
-      return c.json({ error: `A category named "${set.name}" already exists` }, 409)
+      return c.json({ error: `You already have a category named "${set.name}"` }, 409)
     }
     throw err
   }
@@ -233,9 +234,7 @@ categoriesRoute.delete('/:categoryId', async (c) => {
   const db = getDb()
   const category = await db.collection<Category>('categories').findOne({ _id: new ObjectId(categoryId) })
   if (!category) return c.json({ error: 'Category not found' }, 404)
-  if (!canModifyCategory(c.get('user'), category)) {
-    return c.json({ error: 'This category holds templates from projects you cannot access' }, 403)
-  }
+  if (!ownsCategory(c.get('user'), category)) return c.json({ error: 'Category not found' }, 404)
 
   await db.collection<Category>('categories').deleteOne({ _id: category._id })
 
