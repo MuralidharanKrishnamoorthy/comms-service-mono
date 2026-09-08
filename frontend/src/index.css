@@ -232,6 +232,30 @@ textarea.invalid,
   font-weight: 400;
 }
 
+/* Clear (×) inside a clearable Dropdown's trigger. Mirrors .ms-chip-x so the
+   two ways of removing a selection look the same. */
+.dropdown-clear {
+  flex-shrink: 0;
+  margin-left: auto;
+  cursor: pointer;
+  font-size: 1.15em;
+  line-height: 1;
+  color: var(--ink-faint);
+  padding: 0 4px;
+  border-radius: 3px;
+  user-select: none;
+}
+
+.dropdown-clear:hover {
+  color: var(--danger);
+  background: rgba(178, 58, 44, 0.12);
+}
+
+.dropdown-clear:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
 .dropdown-chevron {
   flex-shrink: 0;
   width: 14px;

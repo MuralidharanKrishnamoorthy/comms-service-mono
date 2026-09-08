@@ -112,17 +112,13 @@ export function Categories(_props: { path?: string }) {
           <Dropdown
             value={projectFilter}
             onChange={setProjectFilter}
+            onClear={() => setProjectFilter('')}
             options={[
               { value: '', label: 'All projects' },
               ...projects.map((p) => ({ value: p._id, label: p.name })),
             ]}
           />
         </div>
-        {projectFilter && (
-          <button class="btn btn-sm" onClick={() => setProjectFilter('')}>
-            Clear filter
-          </button>
-        )}
       </div>
 
       {loading ? (
