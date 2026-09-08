@@ -268,6 +268,7 @@ function UserModal({
     <Modal title={mode === 'create' ? 'Add user' : `Edit ${existing?.name ?? 'user'}`} onClose={onClose} width={520}>
       {banner && <div class="banner-error" style={{ marginBottom: 14 }}>{banner}</div>}
       <form onSubmit={submit}>
+        <div class="form-grid">
         <div class="field">
           <label>Name</label>
           <input
@@ -290,7 +291,7 @@ function UserModal({
           {errors.email && <div class="field-error">{errors.email}</div>}
         </div>
 
-        <div class="field">
+        <div class="field full">
           <label>
             {mode === 'create' ? 'Password' : 'Reset password (optional)'}
           </label>
@@ -330,9 +331,10 @@ function UserModal({
           </div>
         )}
 
-        {/* Project access — hidden for admin, who implicitly has all projects. */}
+        {/* Project access — hidden for admin, who implicitly has all projects.
+            Full width on Edit (its own row); shares Role's row on Add. */}
         {role !== 'admin' && (
-          <div class="field">
+          <div class={`field ${mode === 'edit' ? 'full' : ''}`}>
             <label>
               Project access <span class="hint">(select one or more)</span>
             </label>
@@ -348,6 +350,8 @@ function UserModal({
             )}
           </div>
         )}
+
+        </div>
 
         <div class="form-actions">
           <button type="submit" class="btn btn-primary" disabled={submitting}>

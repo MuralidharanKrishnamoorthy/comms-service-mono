@@ -1000,3 +1000,28 @@
   font-size: 13px;
   font-weight: 500;
 }
+
+/* ---------- Two-column form grid (Add/Edit user modal) ---------- */
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px 16px;
+}
+
+/* Grid gap owns the spacing — drop the per-field bottom margin inside it. */
+.form-grid .field {
+  margin-bottom: 0;
+  min-width: 0; /* let fields shrink instead of overflowing the column */
+}
+
+/* A field that spans the whole row. */
+.field.full {
+  grid-column: 1 / -1;
+}
+
+/* Stack to a single column on narrow screens. */
+@media (max-width: 480px) {
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+}
