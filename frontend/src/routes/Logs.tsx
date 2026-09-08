@@ -151,7 +151,13 @@ export function Logs(_props: { path?: string }) {
                   title={`Open project ${projectName(log.project_id)}`}
                   onClick={() => {
                     setSelectedProjectId(log.project_id)
-                    route(`/projects/${log.project_id}`)
+                    route(
+                      linkWithReturn(
+                        `/projects/${log.project_id}`,
+                        '/logs',
+                        'notification logs'
+                      )
+                    )
                   }}
                 >
                   <td>

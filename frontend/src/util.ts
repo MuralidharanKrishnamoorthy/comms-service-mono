@@ -8,25 +8,34 @@ export const CHANNELS: Channel[] = ['email', 'sms', 'push']
 // where to come back to, so Back always returns where you actually were and
 // still works on a reloaded or shared URL.
 
-const DEFAULT_RETURN = { href: '/templates', label: 'Back to templates' }
+export interface ReturnTarget {
+  href: string
+  label: string
+}
 
-/** Builds a link that remembers the page being left. */
-export function linkWithReturn(to: string, from: string, fromLabel: string): string {
-  const params = new URLSearchParams({ from, from_label: fromLabel })
+/**
+ * Builds a link that remembers the page being left. Omit `fromLabel` when the
+ * origin's name would make a poor label (a long or shouty user-typed one) —
+ * the Back control then reads simply "Back".
+ */
+export function linkWithReturn(to: string, from: string, fromLabel?: string): string {
+  const params = new URLSearchParams({ from })
+  if (fromLabel) params.set('from_label', fromLabel)
   return `${to}?${params.toString()}`
 }
 
 /**
- * Reads the return target out of a query string.
+ * Reads the return target out of a query string, falling back to the page's own
+ * natural parent when there isn't one (a directly-opened or shared URL).
  *
  * Only internal, single-slash paths are honoured: an absolute URL or a
- * protocol-relative "//evil.example" falls back to the templates list, so a
- * crafted link can't turn the Back control into an off-site redirect.
+ * protocol-relative "//evil.example" is discarded, so a crafted link can't turn
+ * a Back control into an off-site redirect.
  */
-export function returnTarget(search: string): { href: string; label: string } {
+export function returnTarget(search: string, fallback: ReturnTarget): ReturnTarget {
   const params = new URLSearchParams(search)
   const from = params.get('from') ?? ''
-  if (!from.startsWith('/') || from.startsWith('//')) return DEFAULT_RETURN
+  if (!from.startsWith('/') || from.startsWith('//')) return fallback
 
   const label = params.get('from_label')?.trim()
   return { href: from, label: label ? `Back to ${label}` : 'Back' }

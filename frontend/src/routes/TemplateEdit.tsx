@@ -13,7 +13,10 @@ export function TemplateEdit({ templateKey }: { path?: string; templateKey?: str
   const { selectedProject } = useStore()
   // Read per render rather than held in state: preact-router re-renders on
   // navigation, and the value must track the URL (including a browser Back).
-  const back = returnTarget(window.location.search)
+  const back = returnTarget(window.location.search, {
+    href: '/templates',
+    label: 'Back to templates',
+  })
   const [template, setTemplate] = useState<Template | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<'network' | 'notfound' | null>(null)

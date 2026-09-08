@@ -5,10 +5,12 @@ import { ApiError, API_BASE, getProject } from '../api'
 import type { Project } from '../types'
 import { ApiBanner, BackLink, ChannelChips, StatusBadge } from '../components/ui'
 import { ApiKeysPanel } from '../components/ApiKeysPanel'
-import { formatDate } from '../util'
+import { formatDate, returnTarget } from '../util'
 
 export function ProjectDetail({ id }: { path?: string; id?: string }) {
   const { setSelectedProjectId } = useStore()
+  // Read per render so it tracks the URL, including a browser Back.
+  const back = returnTarget(window.location.search, { href: '/projects', label: 'Back to projects' })
   const [project, setProject] = useState<Project | null>(null)
   const [loading, setLoading] = useState(true)
   const [unreachable, setUnreachable] = useState(false)
@@ -49,7 +51,9 @@ export function ProjectDetail({ id }: { path?: string; id?: string }) {
 
   return (
     <div>
-      <BackLink href="/projects" label="Back to projects" onClick={() => route('/projects')} />
+      {/* Reached from the projects list, or from a log row — the link that
+          brought you says which, so Back returns there. */}
+      <BackLink href={back.href} label={back.label} onClick={() => route(back.href)} />
 
       {unreachable && <ApiBanner base={API_BASE} />}
 
@@ -62,13 +66,13 @@ export function ProjectDetail({ id }: { path?: string; id?: string }) {
             <a
               class="mono"
               style={{ color: 'var(--accent-ink)' }}
-              href="/projects"
+              href={back.href}
               onClick={(e) => {
                 e.preventDefault()
-                route('/projects')
+                route(back.href)
               }}
             >
-              back to projects
+              {back.label.replace(/^Back to /, 'back to ')}
             </a>
             .
           </p>

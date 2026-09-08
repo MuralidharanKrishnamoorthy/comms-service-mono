@@ -59,7 +59,9 @@ export function CategoryDetail({ categoryId }: { path?: string; categoryId?: str
    */
   const openTemplate = (row: AttachedTemplateRow) => {
     setSelectedProjectId(row.project_id)
-    route(linkWithReturn(`/templates/${row.template_key}`, `/categories/${categoryId}`, name))
+    // No label: category names are user-typed and stored upper-case, so
+    // "Back to SOME LONG CATEGORY NAME" reads badly. Plain "Back" it is.
+    route(linkWithReturn(`/templates/${row.template_key}`, `/categories/${categoryId}`))
   }
 
   const back = (
