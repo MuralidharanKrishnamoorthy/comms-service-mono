@@ -2,6 +2,45 @@ import type { Channel } from './types'
 
 export const CHANNELS: Channel[] = ['email', 'sms', 'push']
 
+// ---------- Return navigation ----------
+// A template page is reachable from several places (the templates list, a
+// category, the logs). Rather than each of those guessing, the link carries
+// where to come back to, so Back always returns where you actually were and
+// still works on a reloaded or shared URL.
+
+export interface ReturnTarget {
+  href: string
+  label: string
+}
+
+/**
+ * Builds a link that remembers the page being left. Omit `fromLabel` when the
+ * origin's name would make a poor label (a long or shouty user-typed one) —
+ * the Back control then reads simply "Back".
+ */
+export function linkWithReturn(to: string, from: string, fromLabel?: string): string {
+  const params = new URLSearchParams({ from })
+  if (fromLabel) params.set('from_label', fromLabel)
+  return `${to}?${params.toString()}`
+}
+
+/**
+ * Reads the return target out of a query string, falling back to the page's own
+ * natural parent when there isn't one (a directly-opened or shared URL).
+ *
+ * Only internal, single-slash paths are honoured: an absolute URL or a
+ * protocol-relative "//evil.example" is discarded, so a crafted link can't turn
+ * a Back control into an off-site redirect.
+ */
+export function returnTarget(search: string, fallback: ReturnTarget): ReturnTarget {
+  const params = new URLSearchParams(search)
+  const from = params.get('from') ?? ''
+  if (!from.startsWith('/') || from.startsWith('//')) return fallback
+
+  const label = params.get('from_label')?.trim()
+  return { href: from, label: label ? `Back to ${label}` : 'Back' }
+}
+
 // A disabled channel can be stored as `null` (older documents saved before
 // the backend was fixed to omit them entirely) rather than simply absent —
 // filter by truthiness, not just key presence, and always in a fixed order.

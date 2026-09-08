@@ -18,6 +18,7 @@ export function Dropdown({
   disabled,
   placeholder,
   class: className,
+  onClear,
 }: {
   value: string
   onChange: (value: string) => void
@@ -25,6 +26,12 @@ export function Dropdown({
   disabled?: boolean
   placeholder?: string
   class?: string
+  /**
+   * Pass this to make the dropdown clearable: while something is selected an ×
+   * appears in the trigger, so resetting doesn't need a button of its own
+   * sitting beside the control.
+   */
+  onClear?: () => void
 }) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
@@ -55,6 +62,31 @@ export function Dropdown({
         onClick={() => setOpen((o) => !o)}
       >
         <span class={selected ? '' : 'dropdown-placeholder'}>{selected?.label ?? placeholder ?? ''}</span>
+        {/* A span, not a button: the trigger is already a <button> and nesting
+            one inside it is invalid. Same approach as MultiSelect's chip ×. */}
+        {onClear && value && !disabled && (
+          <span
+            role="button"
+            tabIndex={0}
+            class="dropdown-clear"
+            aria-label="Clear selection"
+            title="Clear"
+            onClick={(e) => {
+              // Don't let the click fall through and toggle the menu open.
+              e.stopPropagation()
+              onClear()
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.stopPropagation()
+                e.preventDefault()
+                onClear()
+              }
+            }}
+          >
+            ×
+          </span>
+        )}
         <svg class="dropdown-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M6 9l6 6 6-6" />
         </svg>

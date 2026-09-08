@@ -3,14 +3,14 @@ import { route } from 'preact-router'
 import { useStore } from '../store'
 import { ApiError, API_BASE, listCategories, listLogs } from '../api'
 import type { Category, MessageLog, MessageStatus } from '../types'
-import { ApiBanner, Drawer, Dropdown, PageHeader, StatusBadge } from '../components/ui'
-import { formatDate } from '../util'
+import { ApiBanner, Dropdown, PageHeader, StatusBadge } from '../components/ui'
+import { formatDate, linkWithReturn } from '../util'
 
 const STATUSES: MessageStatus[] = ['sent', 'failed']
 const CHANNELS = ['email', 'sms', 'push']
 
 export function Logs(_props: { path?: string }) {
-  const { selectedProjectId, projects } = useStore()
+  const { selectedProjectId, projects, setSelectedProjectId } = useStore()
   const projectName = (id: string) => projects.find((p) => p._id === id)?.name ?? '—'
   const [logs, setLogs] = useState<MessageLog[]>([])
   const [loading, setLoading] = useState(true)
@@ -25,8 +25,6 @@ export function Logs(_props: { path?: string }) {
   // which template keys belong to the chosen category.
   const [categories, setCategories] = useState<Category[]>([])
   const [categoryFilter, setCategoryFilter] = useState('')
-
-  const [selected, setSelected] = useState<MessageLog | null>(null)
 
   useEffect(() => {
     listCategories()
@@ -185,19 +183,44 @@ export function Logs(_props: { path?: string }) {
               </tr>
             ) : (
               visibleLogs.map((log) => (
-                <tr key={log._id} class="clickable" onClick={() => setSelected(log)}>
+                // The row goes to the project this send belongs to; the
+                // template key is the one exception and stopPropagations to
+                // reach the template instead. Selecting the project as we leave
+                // keeps the rest of the app pointed at what you just opened.
+                <tr
+                  key={log._id}
+                  class="clickable"
+                  title={`Open project ${projectName(log.project_id)}`}
+                  onClick={() => {
+                    setSelectedProjectId(log.project_id)
+                    route(
+                      linkWithReturn(
+                        `/projects/${log.project_id}`,
+                        '/logs',
+                        'notification logs'
+                      )
+                    )
+                  }}
+                >
                   <td>
-                    {/* Goes to the template, not the send detail — so
-                        stopPropagation, or the row's drawer opens too. Logs are
-                        already scoped to the selected project, so the template
-                        page resolves this key against the same project. */}
+                    {/* The template page resolves this key against the selected
+                        project, so point it at the row's own project first —
+                        under "All projects" the row may belong to another one.
+                        The link remembers to come back here. */}
                     <button
                       type="button"
                       class="cell-link mono"
                       title={`Open template ${log.template_key}`}
                       onClick={(e) => {
                         e.stopPropagation()
-                        route(`/templates/${log.template_key}`)
+                        setSelectedProjectId(log.project_id)
+                        route(
+                          linkWithReturn(
+                            `/templates/${log.template_key}`,
+                            '/logs',
+                            'notification logs'
+                          )
+                        )
                       }}
                     >
                       {log.template_key}
@@ -222,51 +245,6 @@ export function Logs(_props: { path?: string }) {
         </table>
       </div>
 
-      {selected && (
-        <Drawer title="Send detail" onClose={() => setSelected(null)}>
-          <dl class="dl">
-            <dt>Template key</dt>
-            <dd>
-              <button
-                type="button"
-                class="cell-link mono"
-                title={`Open template ${selected.template_key}`}
-                onClick={() => route(`/templates/${selected.template_key}`)}
-              >
-                {selected.template_key}
-              </button>
-            </dd>
-
-            <dt>Project</dt>
-            <dd>{projectName(selected.project_id)}</dd>
-
-            <dt>Channel</dt>
-            <dd>
-              <span class="chip">{selected.channel}</span>
-            </dd>
-
-            <dt>Recipient</dt>
-            <dd>{selected.recipient}</dd>
-
-            <dt>Status</dt>
-            <dd>
-              <StatusBadge status={selected.status} />
-            </dd>
-
-            <dt>Attempts</dt>
-            <dd>{selected.attempts}</dd>
-
-            <dt>Provider msg ID</dt>
-            <dd class="mono">{selected.provider_message_id ?? '—'}</dd>
-
-            <dt>Created</dt>
-            <dd>{formatDate(selected.created_at)}</dd>
-          </dl>
-
-          <label style={{ marginTop: 18 }}>Data</label>
-          <pre class="pre">{JSON.stringify(selected.data ?? {}, null, 2)}</pre>
-        </Drawer>
-      )}
     </div>
   )
 }
