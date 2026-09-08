@@ -4,7 +4,7 @@ import { useStore } from '../store'
 import { ApiError, API_BASE, listLogs } from '../api'
 import type { MessageLog, MessageStatus } from '../types'
 import { ApiBanner, Dropdown, PageHeader, StatusBadge } from '../components/ui'
-import { formatDate } from '../util'
+import { formatDate, linkWithReturn } from '../util'
 
 const STATUSES: MessageStatus[] = ['sent', 'failed']
 const CHANNELS = ['email', 'sms', 'push']
@@ -141,11 +141,10 @@ export function Logs(_props: { path?: string }) {
               </tr>
             ) : (
               logs.map((log) => (
-                // The row goes to the project this send belongs to. The two
-                // exceptions carry their own stopPropagation: the template key
-                // (goes to the template) and the details button (opens the
-                // drawer). Selecting the project as we leave keeps the rest of
-                // the app pointed at what you just opened.
+                // The row goes to the project this send belongs to; the
+                // template key is the one exception and stopPropagations to
+                // reach the template instead. Selecting the project as we leave
+                // keeps the rest of the app pointed at what you just opened.
                 <tr
                   key={log._id}
                   class="clickable"
@@ -156,17 +155,22 @@ export function Logs(_props: { path?: string }) {
                   }}
                 >
                   <td>
-                    {/* Goes to the template, not the send detail — so
-                        stopPropagation, or the row's drawer opens too. Logs are
-                        already scoped to the selected project, so the template
-                        page resolves this key against the same project. */}
+                    {/* Logs are already scoped to the selected project, so the
+                        template page resolves this key against the same one.
+                        The link remembers to come back here. */}
                     <button
                       type="button"
                       class="cell-link mono"
                       title={`Open template ${log.template_key}`}
                       onClick={(e) => {
                         e.stopPropagation()
-                        route(`/templates/${log.template_key}`)
+                        route(
+                          linkWithReturn(
+                            `/templates/${log.template_key}`,
+                            '/logs',
+                            'notification logs'
+                          )
+                        )
                       }}
                     >
                       {log.template_key}
