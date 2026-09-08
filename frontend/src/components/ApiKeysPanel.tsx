@@ -89,6 +89,7 @@ export function ApiKeysPanel({ projectId }: { projectId: string }) {
       if (err instanceof ApiError) setBanner(err.message)
       else setBanner('Could not revoke the key.')
       setPendingRevoke(null)
+    } finally {
       setBusyId(null)
     }
   }
