@@ -1,24 +1,3 @@
-/**
- * Template rendering engine.
- *
- * Templates store `{{variable}}` tokens (whitespace inside braces is tolerated,
- * e.g. `{{ variable }}`). Rendering substitutes each token with the matching
- * value from the caller-supplied data object.
- *
- * The rich-text email editor can bold/italic/color just the inner word of a
- * token (e.g. select only "user_name" inside "{{user_name}}"), which splits
- * the braces from the name into separate HTML text runs — e.g.
- * "{{<strong>user_name</strong>}}". The pattern below tolerates any number
- * of simple inline tags immediately around the identifier so that still
- * counts as one token; the whole match (braces, tags and all) is replaced by
- * the plain substituted value. It does not tolerate a tag landing inside the
- * identifier itself (e.g. only "user_" bolded) — that's a rarer, harder case.
- *
- * HTML content (email) is escaped by default — variable values are user/app
- * data, never trusted markup, so they must never be able to inject tags or
- * break out of the surrounding HTML. Plain text content (SMS/push) is not
- * escaped, since there is no markup to protect.
- */
 const TOKEN_PATTERN = /\{\{\s*(?:<\/?[a-zA-Z][^>]*>\s*)*([a-zA-Z0-9_]+)\s*(?:<\/?[a-zA-Z][^>]*>\s*)*\}\}/g;
 export class MissingVariablesError extends Error {
     missing;
@@ -62,4 +41,20 @@ export function renderTemplate(text, data, options = {}) {
         const stringValue = String(value);
         return options.escapeHtml ? escapeHtml(stringValue) : stringValue;
     });
+}
+// A template author who never touches formatting still gets a properly laid
+// out email rather than raw unstyled paragraphs. Only applied to body
+// fragments — a template that's already a full HTML document (built by hand
+// with its own <html>/<!DOCTYPE>) is left untouched, since it's already
+// designed. Runs after variable substitution, on both the real send path and
+// the dashboard's live preview, so what you preview is exactly what ships.
+const FULL_DOCUMENT_PATTERN = /<!doctype html|<html[\s>]/i;
+export function wrapEmailHtml(bodyHtml) {
+    if (FULL_DOCUMENT_PATTERN.test(bodyHtml))
+        return bodyHtml;
+    return `<div style="background:#f5f6f4;padding:32px 16px;font-family:Arial,Helvetica,sans-serif;">
+  <div style="max-width:600px;margin:0 auto;background:#ffffff;border-radius:8px;padding:32px;color:#15181d;font-size:15px;line-height:1.6;">
+    ${bodyHtml}
+  </div>
+</div>`;
 }

@@ -1,9 +1,12 @@
 import { z } from 'zod';
+export function normalizeTemplateKey(key) {
+    return key.trim().toUpperCase();
+}
 const channelContentSchema = z.object({
-    subject: z.string().optional(), // email only
-    html_body: z.string().optional(), // email only
-    title: z.string().optional(), // push only
-    body: z.string().optional(), // sms / push
+    subject: z.string().optional(),
+    html_body: z.string().optional(),
+    title: z.string().optional(),
+    body: z.string().optional(),
     variables: z.array(z.string()).default([]),
 });
 export const createTemplateSchema = z.object({
@@ -11,7 +14,8 @@ export const createTemplateSchema = z.object({
         .string()
         .min(1)
         .max(80)
-        .regex(/^[A-Z0-9_]+$/, 'template_key must be UPPER_SNAKE_CASE, e.g. ORDER_CREATED'),
+        .regex(/^[A-Za-z0-9_]+$/, 'template_key may only contain letters, numbers and underscores')
+        .transform(normalizeTemplateKey),
     name: z.string().min(1).max(120),
     channels: z
         .object({
