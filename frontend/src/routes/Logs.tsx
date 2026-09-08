@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'preact/hooks'
 import { route } from 'preact-router'
 import { useStore } from '../store'
-import { ApiError, API_BASE, listLogs } from '../api'
-import type { MessageLog, MessageStatus } from '../types'
+import { ApiError, API_BASE, listCategories, listLogs } from '../api'
+import type { Category, MessageLog, MessageStatus } from '../types'
 import { ApiBanner, Drawer, Dropdown, PageHeader, StatusBadge } from '../components/ui'
 import { formatDate } from '../util'
 
@@ -10,35 +10,51 @@ const STATUSES: MessageStatus[] = ['sent', 'failed']
 const CHANNELS = ['email', 'sms', 'push']
 
 export function Logs(_props: { path?: string }) {
-  const { selectedProject, projects } = useStore()
+  const { selectedProjectId, projects } = useStore()
   const projectName = (id: string) => projects.find((p) => p._id === id)?.name ?? '—'
   const [logs, setLogs] = useState<MessageLog[]>([])
   const [loading, setLoading] = useState(true)
   const [unreachable, setUnreachable] = useState(false)
 
+  // Local to this page so "All projects" ('') doesn't clobber the global
+  // selection other pages depend on. Defaults to the current global project.
+  const [projectFilter, setProjectFilter] = useState(selectedProjectId ?? '')
   const [status, setStatus] = useState('')
   const [channel, setChannel] = useState('')
-  const [templateKey, setTemplateKey] = useState('')
+  // Categories are global; used to build the filter dropdown and to resolve
+  // which template keys belong to the chosen category.
+  const [categories, setCategories] = useState<Category[]>([])
+  const [categoryFilter, setCategoryFilter] = useState('')
 
   const [selected, setSelected] = useState<MessageLog | null>(null)
 
   useEffect(() => {
-    if (!selectedProject) {
+    listCategories()
+      .then(setCategories)
+      .catch(() => setCategories([]))
+  }, [])
+
+  useEffect(() => {
+    if (projects.length === 0) {
+      setLogs([])
       setLoading(false)
       return
     }
-    const pid = selectedProject._id
+    // '' means every project — fan out one request per project and merge,
+    // newest first, since the backend only lists logs one project at a time.
+    const targets = projectFilter ? [projectFilter] : projects.map((p) => p._id)
     let cancelled = false
     setLoading(true)
     setUnreachable(false)
     // Only append params that are actually set (handled inside listLogs).
-    listLogs(pid, {
-      status: status || undefined,
-      channel: channel || undefined,
-      template_key: templateKey.trim() || undefined,
-    })
-      .then((data) => {
-        if (!cancelled) setLogs(data)
+    const filters = { status: status || undefined, channel: channel || undefined }
+    Promise.all(targets.map((pid) => listLogs(pid, filters)))
+      .then((batches) => {
+        if (cancelled) return
+        const merged = batches
+          .flat()
+          .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))
+        setLogs(merged)
       })
       .catch((err) => {
         if (cancelled) return
@@ -51,13 +67,26 @@ export function Logs(_props: { path?: string }) {
     return () => {
       cancelled = true
     }
-  }, [selectedProject, status, channel, templateKey])
+  }, [projectFilter, projects, status, channel])
 
-  if (!selectedProject) {
+  // Category is filtered in the browser. A category can span projects, so match
+  // on project_id + template_key together, not the key alone.
+  const categoryKeys = categoryFilter
+    ? new Set(
+        categories
+          .find((c) => c._id === categoryFilter)
+          ?.templates.map((t) => `${t.project_id}::${t.template_key}`) ?? []
+      )
+    : null
+  const visibleLogs = categoryKeys
+    ? logs.filter((log) => categoryKeys.has(`${log.project_id}::${log.template_key}`))
+    : logs
+
+  if (projects.length === 0) {
     return (
       <div>
         <PageHeader title="Notification Logs" />
-        <div class="empty">Select a project in the top bar to view its send history.</div>
+        <div class="empty">No projects yet — create one to see its send history.</div>
       </div>
     )
   }
@@ -72,6 +101,29 @@ export function Logs(_props: { path?: string }) {
       {unreachable && <ApiBanner base={API_BASE} />}
 
       <div class="toolbar">
+        <div class="field toolbar-field">
+          <label>Project</label>
+          <Dropdown
+            class="project-select"
+            value={projectFilter}
+            onChange={setProjectFilter}
+            options={[
+              { value: '', label: 'All projects' },
+              ...projects.map((p) => ({ value: p._id, label: p.name })),
+            ]}
+          />
+        </div>
+        <div class="field toolbar-field">
+          <label>Category</label>
+          <Dropdown
+            value={categoryFilter}
+            onChange={setCategoryFilter}
+            options={[
+              { value: '', label: 'All categories' },
+              ...categories.map((c) => ({ value: c._id, label: c.name })),
+            ]}
+          />
+        </div>
         <div class="field toolbar-field">
           <label>Status</label>
           <Dropdown
@@ -88,23 +140,13 @@ export function Logs(_props: { path?: string }) {
             options={[{ value: '', label: 'All channels' }, ...CHANNELS.map((c) => ({ value: c, label: c }))]}
           />
         </div>
-        <div class="field toolbar-field" style={{ minWidth: 220 }}>
-          <label>Template key</label>
-          <input
-            type="text"
-            class="mono"
-            placeholder="WELCOME_EMAIL"
-            value={templateKey}
-            onInput={(e) => setTemplateKey((e.target as HTMLInputElement).value)}
-          />
-        </div>
-        {(status || channel || templateKey) && (
+        {(status || channel || categoryFilter) && (
           <button
             class="btn btn-sm"
             onClick={() => {
               setStatus('')
               setChannel('')
-              setTemplateKey('')
+              setCategoryFilter('')
             }}
           >
             Clear filters
@@ -133,16 +175,16 @@ export function Logs(_props: { path?: string }) {
               <tr class="state-row">
                 <td colSpan={6}>Couldn't load logs.</td>
               </tr>
-            ) : logs.length === 0 ? (
+            ) : visibleLogs.length === 0 ? (
               <tr class="state-row">
                 <td colSpan={6}>
-                  {status || channel || templateKey
+                  {status || channel || categoryFilter
                     ? 'No sends match these filters.'
                     : 'No sends yet for this project.'}
                 </td>
               </tr>
             ) : (
-              logs.map((log) => (
+              visibleLogs.map((log) => (
                 <tr key={log._id} class="clickable" onClick={() => setSelected(log)}>
                   <td>
                     {/* Goes to the template, not the send detail — so
