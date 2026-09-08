@@ -3,20 +3,11 @@ import { route } from 'preact-router'
 import { useStore } from '../store'
 import { ApiError, API_BASE, listLogs } from '../api'
 import type { MessageLog, MessageStatus } from '../types'
-import { ApiBanner, Drawer, Dropdown, PageHeader, StatusBadge } from '../components/ui'
+import { ApiBanner, Dropdown, PageHeader, StatusBadge } from '../components/ui'
 import { formatDate } from '../util'
 
 const STATUSES: MessageStatus[] = ['sent', 'failed']
 const CHANNELS = ['email', 'sms', 'push']
-
-function InfoIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 11v5M12 8h.01" />
-    </svg>
-  )
-}
 
 export function Logs(_props: { path?: string }) {
   const { selectedProject, projects, setSelectedProjectId } = useStore()
@@ -28,8 +19,6 @@ export function Logs(_props: { path?: string }) {
   const [status, setStatus] = useState('')
   const [channel, setChannel] = useState('')
   const [templateKey, setTemplateKey] = useState('')
-
-  const [selected, setSelected] = useState<MessageLog | null>(null)
 
   useEffect(() => {
     if (!selectedProject) {
@@ -131,21 +120,20 @@ export function Logs(_props: { path?: string }) {
               <th>Recipient</th>
               <th>Status</th>
               <th>Created</th>
-              <th></th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr class="state-row">
-                <td colSpan={7}>Loading…</td>
+                <td colSpan={6}>Loading…</td>
               </tr>
             ) : unreachable ? (
               <tr class="state-row">
-                <td colSpan={7}>Couldn't load logs.</td>
+                <td colSpan={6}>Couldn't load logs.</td>
               </tr>
             ) : logs.length === 0 ? (
               <tr class="state-row">
-                <td colSpan={7}>
+                <td colSpan={6}>
                   {status || channel || templateKey
                     ? 'No sends match these filters.'
                     : 'No sends yet for this project.'}
@@ -196,22 +184,6 @@ export function Logs(_props: { path?: string }) {
                     <StatusBadge status={log.status} />
                   </td>
                   <td class="cell-faint">{formatDate(log.created_at)}</td>
-                  <td style={{ textAlign: 'right' }}>
-                    {/* The row navigates now, so the send detail (payload,
-                        provider id, attempts) needs its own way in. */}
-                    <button
-                      type="button"
-                      class="icon-btn"
-                      title="Send details"
-                      aria-label={`Send details for ${log.template_key}`}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setSelected(log)
-                      }}
-                    >
-                      <InfoIcon />
-                    </button>
-                  </td>
                 </tr>
               ))
             )}
@@ -219,51 +191,6 @@ export function Logs(_props: { path?: string }) {
         </table>
       </div>
 
-      {selected && (
-        <Drawer title="Send detail" onClose={() => setSelected(null)}>
-          <dl class="dl">
-            <dt>Template key</dt>
-            <dd>
-              <button
-                type="button"
-                class="cell-link mono"
-                title={`Open template ${selected.template_key}`}
-                onClick={() => route(`/templates/${selected.template_key}`)}
-              >
-                {selected.template_key}
-              </button>
-            </dd>
-
-            <dt>Project</dt>
-            <dd>{projectName(selected.project_id)}</dd>
-
-            <dt>Channel</dt>
-            <dd>
-              <span class="chip">{selected.channel}</span>
-            </dd>
-
-            <dt>Recipient</dt>
-            <dd>{selected.recipient}</dd>
-
-            <dt>Status</dt>
-            <dd>
-              <StatusBadge status={selected.status} />
-            </dd>
-
-            <dt>Attempts</dt>
-            <dd>{selected.attempts}</dd>
-
-            <dt>Provider msg ID</dt>
-            <dd class="mono">{selected.provider_message_id ?? '—'}</dd>
-
-            <dt>Created</dt>
-            <dd>{formatDate(selected.created_at)}</dd>
-          </dl>
-
-          <label style={{ marginTop: 18 }}>Data</label>
-          <pre class="pre">{JSON.stringify(selected.data ?? {}, null, 2)}</pre>
-        </Drawer>
-      )}
     </div>
   )
 }
