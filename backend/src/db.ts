@@ -25,14 +25,8 @@ async function ensureIndexes(database: Db): Promise<void> {
   await database.collection('message_logs').createIndex({ project_id: 1, created_at: -1 })
   await database.collection('message_logs').createIndex({ status: 1, next_retry_at: 1 })
   await database.collection('message_logs').createIndex({ provider_message_id: 1 })
-  for (const legacy of ['name_1', 'created_by_1']) {
-    try {
-      await database.collection('categories').dropIndex(legacy)
-    } catch {
-    }
-  }
+  await database.collection('categories').createIndex({ name: 1 }, { unique: true })
 
-  await database.collection('categories').createIndex({ created_by: 1, name: 1 }, { unique: true })
   await database.collection('categories').createIndex({ 'templates.template_id': 1 })
 
   await database.collection('users').createIndex({ email: 1 }, { unique: true })
