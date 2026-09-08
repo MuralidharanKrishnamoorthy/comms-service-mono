@@ -17,17 +17,11 @@ export const API_BASE: string =
   (import.meta.env.VITE_API_BASE as string | undefined)?.replace(/\/$/, '') ||
   'http://localhost:3000'
 
-// Called when any request comes back 401 (session missing/expired). The
-// AuthProvider registers this to drop the user and send them to the login view.
 let onUnauthorized: (() => void) | null = null
 export function setUnauthorizedHandler(fn: (() => void) | null) {
   onUnauthorized = fn
 }
 
-// One error type for everything a screen needs to branch on:
-//   isNetwork  → couldn't reach the backend at all (show the "is it running?" banner)
-//   status     → HTTP status for 400 / 409 handling
-//   details    → the backend's { fieldErrors, formErrors } envelope, when present
 export class ApiError extends Error {
   status: number
   isNetwork: boolean
@@ -87,9 +81,6 @@ async function request<T>(
   }
 
   if (!res.ok) {
-    // Session gone/expired: let the app drop to the login view. Skip the /auth/*
-    // probes themselves (login failure, the initial /auth/me check) so they can
-    // handle their own 401 without triggering a redirect.
     if (res.status === 401 && !path.startsWith('/auth/')) {
       onUnauthorized?.()
     }

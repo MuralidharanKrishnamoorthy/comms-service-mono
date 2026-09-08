@@ -22,9 +22,9 @@ export function ApiKeysPanel({ projectId }: { projectId: string }) {
   const [banner, setBanner] = useState<string | null>(null)
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
-  // The key awaiting revoke confirmation (drives the in-app dialog).
+
   const [pendingRevoke, setPendingRevoke] = useState<ApiKeyRow | null>(null)
-  // Likewise for delete, which is a separate, harder action than revoke.
+
   const [pendingDelete, setPendingDelete] = useState<ApiKeyRow | null>(null)
 
   const refresh = () => {
@@ -44,12 +44,9 @@ export function ApiKeysPanel({ projectId }: { projectId: string }) {
   const isOwner = (k: ApiKeyRow) => user?.id === k.created_by
   const canRevoke = (k: ApiKeyRow) =>
     k.status === 'active' && (user?.role === 'admin' || isOwner(k))
-  // Any key can be deleted, active ones included — the confirmation carries
-  // the warning rather than the button being withheld.
+
   const canDelete = (k: ApiKeyRow) => user?.role === 'admin' || isOwner(k)
 
-  // Copy: fetch the value FRESH each click (owner-only endpoint); never cache it
-  // beyond the clipboard write.
   const copy = async (k: ApiKeyRow) => {
     setBanner(null)
     setBusyId(k._id)
@@ -81,7 +78,6 @@ export function ApiKeysPanel({ projectId }: { projectId: string }) {
     }
   }
 
-  // Runs after the in-app confirm dialog is accepted.
   const doRevoke = async (k: ApiKeyRow) => {
     setBanner(null)
     setBusyId(k._id)
@@ -108,7 +104,7 @@ export function ApiKeysPanel({ projectId }: { projectId: string }) {
             Each key is owned by whoever created it. You can only copy keys you created.
           </p>
         </div>
-        {/* Any project member can generate a key — no role gate. */}
+
         <button class="btn btn-primary" onClick={() => setCreating(true)}>
           + Generate key
         </button>
@@ -160,7 +156,7 @@ export function ApiKeysPanel({ projectId }: { projectId: string }) {
                     <StatusBadge status={k.status} />
                   </td>
                   <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                    {/* Copy only on your own keys (the reveal endpoint is owner-only). */}
+
                     {isOwner(k) && k.status === 'active' && (
                       <button
                         class="btn btn-sm"
@@ -370,8 +366,7 @@ function GenerateKeyModal({ projectId, onClose }: { projectId: string; onClose: 
           {nameError && <div class="field-error">{nameError}</div>}
         </div>
         <div class="field">
-          {/* No `for` — Dropdown renders a button, not a labelable control
-              (same as the filter labels in Logs). */}
+
           <label>Expires in</label>
           <Dropdown
             value={expiresInDays}

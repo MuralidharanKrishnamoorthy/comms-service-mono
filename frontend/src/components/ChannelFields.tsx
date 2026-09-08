@@ -4,9 +4,6 @@ import { ApiError, uploadImage } from '../api'
 import { extractVariables, wrapEmailHtml } from '../util'
 import { RichTextEditor } from './RichTextEditor'
 
-// Raw HTML source editor with a small formatting toolbar. Buttons wrap the
-// current text selection in the matching tag (or a <span style="..."> for
-// color/highlight) rather than trying to run a live WYSIWYG over raw markup.
 function HtmlSourceEditor({
   value,
   onChange,

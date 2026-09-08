@@ -49,7 +49,6 @@ export function TemplateNew(_props: { path?: string }) {
     setContent((c) => ({ ...c, [ch]: { ...c[ch], ...patch } }))
 
   const onKeyInput = (raw: string) => {
-    // Force UPPER_SNAKE_CASE while typing: uppercase + strip anything not [A-Z0-9_].
     setTemplateKey(raw.toUpperCase().replace(/[^A-Z0-9_]/g, ''))
   }
 
@@ -88,7 +87,6 @@ export function TemplateNew(_props: { path?: string }) {
     setChannelsBanner(banner)
 
     const channelHasError = CHANNELS.some((c) => Object.keys(ce[c]).length > 0)
-    // Jump to the first channel tab that has an error.
     if (channelHasError) {
       const firstBad = CHANNELS.find((c) => Object.keys(ce[c]).length > 0)
       if (firstBad) setActiveTab(firstBad)
@@ -119,7 +117,6 @@ export function TemplateNew(_props: { path?: string }) {
     if (fe.template_key?.[0]) te.template_key = fe.template_key[0]
     if (fe.name?.[0]) te.name = fe.name[0]
     setTopErrors(te)
-    // Nested channel issues flatten under the `channels` key.
     if (fe.channels?.length) setChannelsBanner(fe.channels.join(' '))
     if (err.details?.formErrors?.length) setBanner(err.details.formErrors.join(' '))
   }

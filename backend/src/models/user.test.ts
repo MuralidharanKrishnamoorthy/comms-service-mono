@@ -2,13 +2,8 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { passwordSchema, changePasswordSchema } from './user.js'
 
-// The self-service password rules (8+ chars, at least one number) are the piece
-// of the change-password endpoint that's testable without a database. Endpoint
-// behaviour (200 on success, 401 unauthenticated, flag cleared) needs a Mongo
-// test harness this repo doesn't have yet — see the PR note.
-
 test('passwordSchema rejects a password shorter than 8 characters', () => {
-  const result = passwordSchema.safeParse('ab12') // 4 chars
+  const result = passwordSchema.safeParse('ab12')
   assert.equal(result.success, false)
 })
 

@@ -9,7 +9,7 @@ const STORAGE_KEY = 'commsvc.selectedProjectId'
 interface Store {
   projects: Project[]
   projectsLoading: boolean
-  // true only when the projects fetch failed because the backend was unreachable
+
   projectsUnreachable: boolean
   selectedProjectId: string | null
   selectedProject: Project | null
@@ -39,7 +39,7 @@ export function StoreProvider({ children }: { children: ComponentChildren }) {
       const data = await listProjects()
       setProjects(data)
       setProjectsUnreachable(false)
-      // Keep the selection valid; default to the first project if none is chosen.
+
       setSelectedProjectIdState((current) => {
         if (current && data.some((p) => p._id === current)) return current
         const next = data[0]?._id ?? null

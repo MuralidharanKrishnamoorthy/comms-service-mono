@@ -11,8 +11,7 @@ const CHANNEL_LABELS: Record<Channel, string> = { email: 'Email', sms: 'SMS', pu
 
 export function TemplateEdit({ templateKey }: { path?: string; templateKey?: string }) {
   const { selectedProject } = useStore()
-  // Read per render rather than held in state: preact-router re-renders on
-  // navigation, and the value must track the URL (including a browser Back).
+
   const back = returnTarget(window.location.search, {
     href: '/templates',
     label: 'Back to templates',
@@ -129,9 +128,7 @@ export function TemplateEdit({ templateKey }: { path?: string; templateKey?: str
 
   return (
     <div>
-      {/* Where Back goes depends on how you got here — a category, the logs, or
-          the templates list. The link that brought you carries the target; the
-          templates list is the fallback for a directly-opened URL. */}
+
       <BackLink href={back.href} label={back.label} onClick={() => route(back.href)} />
 
       {loadError === 'network' && <ApiBanner base={API_BASE} />}

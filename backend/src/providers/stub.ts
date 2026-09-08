@@ -1,12 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import type { EmailProvider, SmsProvider, PushProvider } from './types.js'
 
-/**
- * Stand-ins for the real SendGrid/Twilio/FCM adapters. Same interface as the
- * real providers will use, so swapping these out later is a one-file change
- * per channel, not a rewrite of the send endpoint.
- */
-
 export const stubEmailProvider: EmailProvider = {
   async send(payload) {
     console.log('[stub email]', payload)

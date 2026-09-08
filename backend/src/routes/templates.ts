@@ -12,15 +12,12 @@ import type { AuthEnv } from '../middleware/dashboardAuth.js'
 import { hasProjectAccess } from '../lib/access.js'
 import type { Category } from '../models/category.js'
 
-// Mounted at /projects/:projectId/templates — behind dashboardAuth, and each
-// handler additionally checks the caller may access this specific project.
 export const templatesRoute = new Hono<AuthEnv>()
 
 function withVersionAndLive(content: Omit<ChannelContent, 'version' | 'live'>): ChannelContent {
   return { ...content, version: 1, live: true }
 }
 
-// Create a template
 templatesRoute.post('/', async (c) => {
   const projectId = c.req.param('projectId')
   if (!projectId || !ObjectId.isValid(projectId)) {
@@ -52,9 +49,6 @@ templatesRoute.post('/', async (c) => {
     template_key: parsed.data.template_key,
     name: parsed.data.name,
     channels: {
-      // A key set to `undefined` still gets stored as BSON null by the
-      // MongoDB driver's default serializer — omit the key entirely via
-      // conditional spread so a disabled channel is truly absent, not null.
       ...(parsed.data.channels.email ? { email: withVersionAndLive(parsed.data.channels.email) } : {}),
       ...(parsed.data.channels.sms ? { sms: withVersionAndLive(parsed.data.channels.sms) } : {}),
       ...(parsed.data.channels.push ? { push: withVersionAndLive(parsed.data.channels.push) } : {}),
@@ -67,8 +61,6 @@ templatesRoute.post('/', async (c) => {
     const result = await db.collection<Template>('templates').insertOne(template)
     return c.json({ id: result.insertedId, ...template }, 201)
   } catch (err) {
-    // The findOne check above narrows the race, but a genuinely simultaneous
-    // request can still slip through — the unique index is the real guard.
     if (err instanceof MongoServerError && err.code === 11000) {
       return c.json({ error: `template_key "${parsed.data.template_key}" already exists for this project` }, 409)
     }
@@ -76,7 +68,6 @@ templatesRoute.post('/', async (c) => {
   }
 })
 
-// List templates for a project (dashboard use)
 templatesRoute.get('/', async (c) => {
   const projectId = c.req.param('projectId')
   if (!projectId || !ObjectId.isValid(projectId)) {
@@ -95,7 +86,6 @@ templatesRoute.get('/', async (c) => {
   return c.json(templates)
 })
 
-// Look up one template by its key (used internally by the send endpoint later)
 templatesRoute.get('/:templateKey', async (c) => {
   const projectId = c.req.param('projectId')
   const templateKey = normalizeTemplateKey(c.req.param('templateKey') ?? '')
@@ -119,9 +109,6 @@ templatesRoute.get('/:templateKey', async (c) => {
   return c.json(template)
 })
 
-// Update one channel of a template — e.g. wording change. Bumps that channel's
-// version and keeps it live immediately (no separate publish step, matches the
-// "no redeploy needed" design decision).
 templatesRoute.patch('/:templateKey/:channel', async (c) => {
   const projectId = c.req.param('projectId')
   const templateKey = normalizeTemplateKey(c.req.param('templateKey') ?? '')

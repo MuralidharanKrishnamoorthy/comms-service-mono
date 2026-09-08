@@ -6,11 +6,6 @@ import type { AttachedTemplateRow } from '../types'
 import { ApiBanner, BackLink, ChannelChips, PageHeader } from '../components/ui'
 import { enabledChannels, linkWithReturn } from '../util'
 
-/**
- * Read-only view of one category: every template in it, one per row, across
- * every project at once. Editing (renaming, adding, removing templates) lives
- * in the Edit dialog on the category card — one place, not two.
- */
 export function CategoryDetail({ categoryId }: { path?: string; categoryId?: string }) {
   const { setSelectedProjectId } = useStore()
   const [name, setName] = useState('')
@@ -50,17 +45,9 @@ export function CategoryDetail({ categoryId }: { path?: string; categoryId?: str
     }
   }, [categoryId])
 
-  /**
-   * A category can hold templates from several projects, but the template page
-   * resolves its key against whichever project is selected — so the selection
-   * has to move to this row's project first, or the lookup 404s on a key that
-   * exists somewhere else. The link also carries where to come back to, so
-   * Back returns to this category rather than the templates list.
-   */
   const openTemplate = (row: AttachedTemplateRow) => {
     setSelectedProjectId(row.project_id)
-    // No label: category names are user-typed and stored upper-case, so
-    // "Back to SOME LONG CATEGORY NAME" reads badly. Plain "Back" it is.
+
     route(linkWithReturn(`/templates/${row.template_key}`, `/categories/${categoryId}`))
   }
 

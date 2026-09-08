@@ -10,22 +10,14 @@ import type { User } from '../models/user.js'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
-// A key's real, current status — 'revoked' is a permanent human decision and
-// wins even past expiry; otherwise an active key past its expires_at reads as
-// 'expired' without ever touching the stored `status` field.
 function effectiveStatus(key: Pick<ApiKey, 'status' | 'expires_at'>): 'active' | 'revoked' | 'expired' {
   if (key.status === 'revoked') return 'revoked'
   if (key.expires_at && key.expires_at <= new Date()) return 'expired'
   return 'active'
 }
 
-// Mounted at /projects/:projectId/api-keys — behind dashboardAuth. Per-project,
-// multi-owner keys: anyone with access to the project may create keys; each key
-// is owned by its creator. See rules below on each handler.
 export const apiKeysRoute = new Hono<AuthEnv>()
 
-// Lightweight in-memory throttle for the reveal endpoint (per user). Not a
-// substitute for a real rate limiter, but caps runaway credential-dumping.
 const revealHits = new Map<string, number[]>()
 const REVEAL_WINDOW_MS = 60_000
 const REVEAL_MAX = 30
@@ -41,7 +33,6 @@ function revealAllowed(userId: string): boolean {
   return true
 }
 
-// POST /projects/:projectId/api-keys — any project member (not admin-only).
 apiKeysRoute.post('/', async (c) => {
   const projectId = c.req.param('projectId')
   if (!projectId || !ObjectId.isValid(projectId)) return c.json({ error: 'Invalid projectId' }, 400)
@@ -73,8 +64,6 @@ apiKeysRoute.post('/', async (c) => {
   }
   const result = await getDb().collection<ApiKey>('api_keys').insertOne(key)
 
-  // `value` is returned ONLY here at creation (and again later via reveal, to
-  // the creator only).
   return c.json(
     {
       id: result.insertedId,
@@ -89,8 +78,6 @@ apiKeysRoute.post('/', async (c) => {
   )
 })
 
-// GET /projects/:projectId/api-keys — admin sees all keys' metadata; everyone
-// else sees only keys they created. Filtering happens in the query, never in JS.
 apiKeysRoute.get('/', async (c) => {
   const projectId = c.req.param('projectId')
   if (!projectId || !ObjectId.isValid(projectId)) return c.json({ error: 'Invalid projectId' }, 400)
@@ -105,7 +92,7 @@ apiKeysRoute.get('/', async (c) => {
 
   const keys = await db
     .collection<ApiKey>('api_keys')
-    // Never project value_encrypted or key_hash into a list response.
+
     .find(filter, { projection: { value_encrypted: 0, key_hash: 0 } })
     .sort({ created_at: -1 })
     .toArray()
@@ -131,8 +118,6 @@ apiKeysRoute.get('/', async (c) => {
   )
 })
 
-// GET /projects/:projectId/api-keys/:keyId/reveal — CREATOR ONLY. No admin
-// bypass: admins can revoke, not read. Every call is audit-logged.
 apiKeysRoute.get('/:keyId/reveal', async (c) => {
   const projectId = c.req.param('projectId')
   const keyId = c.req.param('keyId')
@@ -149,7 +134,6 @@ apiKeysRoute.get('/:keyId/reveal', async (c) => {
     .findOne({ _id: new ObjectId(keyId), project_id: new ObjectId(projectId) })
   if (!key) return c.json({ error: 'Key not found' }, 404)
 
-  // Only the creator — deliberately no admin bypass on this endpoint.
   if (!key.created_by.equals(user._id)) {
     return c.json({ error: 'Only the key owner can reveal its value' }, 403)
   }
@@ -160,8 +144,6 @@ apiKeysRoute.get('/:keyId/reveal', async (c) => {
     return c.json({ error: 'Too many reveal requests — try again shortly' }, 429)
   }
 
-  // Each reveal is a live credential exposure event — trace it to the server
-  // log. (No dedicated audit collection: console-only by choice.)
   console.info(
     `[api-keys] reveal: user=${user._id.toString()} key=${key._id!.toString()} project=${projectId} at=${new Date().toISOString()}`
   )

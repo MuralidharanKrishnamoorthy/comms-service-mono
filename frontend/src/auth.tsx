@@ -10,8 +10,7 @@ interface AuthState {
   loading: boolean
   login: (email: string, password: string) => Promise<void>
   logout: () => Promise<void>
-  // Re-fetch /auth/me and update the cached user (e.g. after a password change
-  // clears mustChangePassword).
+
   refreshUser: () => Promise<void>
 }
 
@@ -21,14 +20,11 @@ export function AuthProvider({ children }: { children: ComponentChildren }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
 
-  // Any 401 from a normal API call means the session is gone — drop the user,
-  // which flips the app to the login screen.
   useEffect(() => {
     setUnauthorizedHandler(() => setUser(null))
     return () => setUnauthorizedHandler(null)
   }, [])
 
-  // Hydrate the session on boot (the cookie is sent automatically).
   useEffect(() => {
     let cancelled = false
     api
@@ -37,7 +33,6 @@ export function AuthProvider({ children }: { children: ComponentChildren }) {
         if (!cancelled) setUser(u)
       })
       .catch(() => {
-        // 401 (not logged in) or network error → treat as logged out.
         if (!cancelled) setUser(null)
       })
       .finally(() => {
@@ -57,7 +52,6 @@ export function AuthProvider({ children }: { children: ComponentChildren }) {
     try {
       await api.logout()
     } catch (err) {
-      // A network failure shouldn't trap the user in a logged-in shell.
       if (!(err instanceof ApiError)) throw err
     }
     setUser(null)
