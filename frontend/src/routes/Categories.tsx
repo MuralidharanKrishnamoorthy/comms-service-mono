@@ -425,8 +425,20 @@ function EditCategoryModal({
           </div>
         )}
 
+        {!loadingAttached && selection.length === 0 && (
+          <div class="banner-warning" style={{ marginBottom: 14 }}>
+            Every template is unticked. A category must keep at least one — without it
+            the category belongs to no project and nobody could see it. Tick one to save,
+            or close this and delete the category instead.
+          </div>
+        )}
+
         <div class="form-actions">
-          <button type="submit" class="btn btn-primary" disabled={submitting || loadingAttached}>
+          <button
+            type="submit"
+            class="btn btn-primary"
+            disabled={submitting || loadingAttached || selection.length === 0}
+          >
             {submitting ? 'Saving…' : 'Save changes'}
           </button>
           <button type="button" class="btn" onClick={onClose} disabled={submitting}>
@@ -549,7 +561,7 @@ function CreateCategoryModal({ onClose, onCreated }: { onClose: () => void; onCr
 
         <div class="field">
           <label>
-            Add projects <span class="hint">(optional — you can add more later)</span>
+            Project <span class="hint">(decides who can see this category)</span>
           </label>
           {projects.length === 0 ? (
             <p class="subtle" style={{ margin: 0 }}>No projects exist yet.</p>
@@ -568,7 +580,12 @@ function CreateCategoryModal({ onClose, onCreated }: { onClose: () => void; onCr
             {templatesLoading ? (
               <p class="subtle" style={{ margin: 0 }}>Loading templates…</p>
             ) : templates.length === 0 ? (
-              <p class="subtle" style={{ margin: 0 }}>This project has no templates yet.</p>
+              <div class="banner-warning">
+                This project has no templates yet, so there is nothing to group. Create a
+                template in <strong>{projects.find((p) => p._id === projectId)?.name ?? 'this project'}</strong>{' '}
+                first, then come back — a category needs at least one template, and that is
+                what puts it in front of your teammates on the project.
+              </div>
             ) : (
               <div class="checkbox-list">
                 {templates.map((t) => (
@@ -586,8 +603,18 @@ function CreateCategoryModal({ onClose, onCreated }: { onClose: () => void; onCr
           </div>
         )}
 
+        {projectId && !templatesLoading && templates.length > 0 && picked.length === 0 && (
+          <p class="subtle" style={{ margin: '0 0 10px' }}>
+            Tick at least one template to continue.
+          </p>
+        )}
+
         <div class="form-actions">
-          <button type="submit" class="btn btn-primary" disabled={submitting}>
+          <button
+            type="submit"
+            class="btn btn-primary"
+            disabled={submitting || picked.length === 0}
+          >
             {submitting
               ? 'Creating…'
               : picked.length > 0

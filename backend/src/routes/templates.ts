@@ -177,15 +177,47 @@ templatesRoute.delete('/:templateKey', async (c) => {
     return c.json({ error: 'Template not found' }, 404)
   }
 
+  // A category is reachable only through the projects of its templates, so one
+  // that would be left empty belongs to no project: invisible to every member
+  // and deletable by none. Rather than quietly destroying a named grouping as
+  // a side effect, say which categories would go and make the caller ask again
+  // with ?delete_orphaned_categories=true.
+  const orphaned = await db
+    .collection<Category>('categories')
+    .find({ 'templates.template_id': template._id, templates: { $size: 1 } }, { projection: { name: 1 } })
+    .toArray()
+
+  const confirmed = c.req.query('delete_orphaned_categories') === 'true'
+  if (orphaned.length > 0 && !confirmed) {
+    const names = orphaned.map((cat) => `"${cat.name}"`).join(', ')
+    return c.json(
+      {
+        error:
+          `"${template.template_key}" is the only template in ${names}. ` +
+          `Deleting it would leave ${orphaned.length === 1 ? 'that category' : 'those categories'} empty, ` +
+          `so ${orphaned.length === 1 ? 'it' : 'they'} would be removed too. ` +
+          'Detach the template first, or repeat this request with ?delete_orphaned_categories=true.',
+        orphaned_categories: orphaned.map((cat) => ({ _id: cat._id, name: cat.name })),
+      },
+      409
+    )
+  }
+
   await db.collection<Template>('templates').deleteOne({ _id: template._id })
   await db
     .collection<Category>('categories')
     .updateMany({ 'templates.template_id': template._id }, { $pull: { templates: { template_id: template._id } } })
 
-  // A category is reachable through the projects of its templates, so one that
-  // just lost its last template belongs to no project and would linger unseen
-  // and undeletable. The grouping goes when the last thing it grouped goes.
-  const { deletedCount } = await db.collection<Category>('categories').deleteMany({ templates: { $size: 0 } })
+  // Exactly the categories identified above — a targeted delete, so a category
+  // left empty by some other route is never swept up by this one.
+  if (orphaned.length > 0) {
+    await db
+      .collection<Category>('categories')
+      .deleteMany({ _id: { $in: orphaned.map((cat) => cat._id!) } })
+  }
 
-  return c.json({ deleted: true, categories_removed: deletedCount })
+  return c.json({
+    deleted: true,
+    categories_removed: orphaned.map((cat) => ({ _id: cat._id, name: cat.name })),
+  })
 })

@@ -935,6 +935,18 @@ tr.clickable:hover td {
   margin-bottom: 18px;
 }
 
+/* Same shape as .banner-error, but for a blocked-but-not-broken state: the
+   form is fine, there is simply nothing here to act on yet. */
+.banner-warning {
+  background: #fdf3e3;
+  border: 1px solid #e8d3a8;
+  color: #8a5a12;
+  border-radius: var(--r-sm);
+  padding: 11px 14px;
+  font-size: 0.9286rem;
+  line-height: 1.5;
+}
+
 /* ---------- States ---------- */
 .state-row td {
   text-align: center;
