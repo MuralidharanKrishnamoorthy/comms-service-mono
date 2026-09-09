@@ -778,35 +778,6 @@
   border-color: #ddc9ee;
 }
 
-/* ---------- Checkbox list (project access) ---------- */
-.checkbox-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  /* In em so it tracks the viewport-scaled type; ~9 rows before scrolling,
-     which lands the cut between rows rather than through one. */
-  max-height: 17em;
-  overflow-y: auto;
-  border: 1px solid var(--border);
-  border-radius: var(--r-sm);
-  padding: 10px 12px;
-  background: var(--surface-alt);
-}
-
-.checkbox-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0;
-  font-weight: 500;
-  font-size: 0.9286rem;
-  color: var(--ink);
-}
-
-.checkbox-row input {
-  width: auto;
-}
-
 /* ---------- Confirm dialog ---------- */
 .confirm-message {
   font-size: 1rem;
@@ -867,6 +838,21 @@
 
 .ms-option.selected {
   background: var(--accent-soft);
+}
+
+/* Secondary text in an option row — a template's key beside its name. Pushed
+   to the trailing edge inside the flex .ms-option; in the block-level
+   single-select .dropdown-option it simply trails the label. Never wraps, so a
+   long key is clipped by the menu rather than pushing the row taller. */
+.dropdown-option-hint {
+  margin-left: auto;
+  padding-left: 14px;
+  color: var(--ink-faint);
+  font-size: 0.857rem;
+  font-weight: 400;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .dropdown-empty {

@@ -16,6 +16,7 @@ import {
   ConfirmDialog,
   Dropdown,
   Modal,
+  MultiSelect,
   PageHeader,
   PencilIcon,
   TrashIcon,
@@ -228,8 +229,6 @@ export function Categories(_props: { path?: string }) {
 }
 
 type Pick = { project_id: string; template_key: string }
-const samePick = (a: Pick, b: Pick) =>
-  a.project_id === b.project_id && a.template_key === b.template_key
 
 /**
  * The one place a category is edited: its name and its templates together.
@@ -316,13 +315,14 @@ function EditCategoryModal({
     }
   }, [projectId])
 
-  const toggle = (templateKey: string) => {
-    const entry = { project_id: projectId, template_key: templateKey }
-    setSelection((rows) =>
-      rows.some((r) => samePick(r, entry))
-        ? rows.filter((r) => !samePick(r, entry))
-        : [...rows, entry]
-    )
+  // The dropdown only ever edits the project on screen. Picks made for other
+  // projects are carried through untouched, so switching projects mid-edit
+  // never silently detaches what was chosen elsewhere.
+  const setPicksForProject = (templateKeys: string[]) => {
+    setSelection((rows) => [
+      ...rows.filter((r) => r.project_id !== projectId),
+      ...templateKeys.map((template_key) => ({ project_id: projectId, template_key })),
+    ])
   }
 
   const submit = async (e: Event) => {
@@ -383,9 +383,9 @@ function EditCategoryModal({
 
         <div class="field">
           <label>
-            Templates{' '}
+            Project{' '}
             <span class="hint">
-              {selection.length} selected{pickedHere !== selection.length && ` · ${pickedHere} here`}
+              {selection.length} template{selection.length === 1 ? '' : 's'} selected in total
             </span>
           </label>
           {projects.length === 0 ? (
@@ -402,25 +402,27 @@ function EditCategoryModal({
 
         {projectId && (
           <div class="field">
+            <label>
+              Templates in this project{' '}
+              {pickedHere > 0 && <span class="hint">({pickedHere} ticked)</span>}
+            </label>
             {loadingAttached || loadingCandidates ? (
               <p class="subtle" style={{ margin: 0 }}>Loading templates…</p>
             ) : candidates.length === 0 ? (
               <p class="subtle" style={{ margin: 0 }}>This project has no templates yet.</p>
             ) : (
-              <div class="checkbox-list">
-                {candidates.map((t) => (
-                  <label key={t._id} class="checkbox-row">
-                    <input
-                      type="checkbox"
-                      checked={selection.some((s) =>
-                        samePick(s, { project_id: projectId, template_key: t.template_key })
-                      )}
-                      onChange={() => toggle(t.template_key)}
-                    />
-                    {t.name} <span class="mono subtle">{t.template_key}</span>
-                  </label>
-                ))}
-              </div>
+              <MultiSelect
+                values={selection
+                  .filter((s) => s.project_id === projectId)
+                  .map((s) => s.template_key)}
+                onChange={setPicksForProject}
+                placeholder="Choose templates"
+                options={candidates.map((t) => ({
+                  value: t.template_key,
+                  label: t.name,
+                  hint: t.template_key,
+                }))}
+              />
             )}
           </div>
         )}
@@ -490,11 +492,6 @@ function CreateCategoryModal({ onClose, onCreated }: { onClose: () => void; onCr
       cancelled = true
     }
   }, [projectId])
-
-  const toggle = (templateKey: string) =>
-    setPicked((keys) =>
-      keys.includes(templateKey) ? keys.filter((k) => k !== templateKey) : [...keys, templateKey]
-    )
 
   const submit = async (e: Event) => {
     e.preventDefault()
@@ -577,6 +574,10 @@ function CreateCategoryModal({ onClose, onCreated }: { onClose: () => void; onCr
 
         {projectId && (
           <div class="field">
+            <label>
+              Templates{' '}
+              {picked.length > 0 && <span class="hint">({picked.length} selected)</span>}
+            </label>
             {templatesLoading ? (
               <p class="subtle" style={{ margin: 0 }}>Loading templates…</p>
             ) : templates.length === 0 ? (
@@ -587,18 +588,16 @@ function CreateCategoryModal({ onClose, onCreated }: { onClose: () => void; onCr
                 what puts it in front of your teammates on the project.
               </div>
             ) : (
-              <div class="checkbox-list">
-                {templates.map((t) => (
-                  <label key={t._id} class="checkbox-row">
-                    <input
-                      type="checkbox"
-                      checked={picked.includes(t.template_key)}
-                      onChange={() => toggle(t.template_key)}
-                    />
-                    {t.name} <span class="mono subtle">{t.template_key}</span>
-                  </label>
-                ))}
-              </div>
+              <MultiSelect
+                values={picked}
+                onChange={setPicked}
+                placeholder="Choose templates"
+                options={templates.map((t) => ({
+                  value: t.template_key,
+                  label: t.name,
+                  hint: t.template_key,
+                }))}
+              />
             )}
           </div>
         )}

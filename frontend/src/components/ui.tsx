@@ -5,6 +5,11 @@ import type { MessageStatus } from '../types'
 export interface DropdownOption {
   value: string
   label: string
+  // Secondary text shown muted beside the label in the option list, for when
+  // the label alone is ambiguous — a template's key next to its name, say. The
+  // trigger and the selected chips show the label on its own, so this can be
+  // as long as it needs to be.
+  hint?: string
 }
 
 export function Dropdown({
@@ -98,6 +103,7 @@ export function Dropdown({
               }}
             >
               {o.label}
+              {o.hint && <span class="dropdown-option-hint mono">{o.hint}</span>}
             </button>
           ))}
         </div>
@@ -222,6 +228,7 @@ export function MultiSelect({
                     )}
                   </span>
                   {o.label}
+                  {o.hint && <span class="dropdown-option-hint mono">{o.hint}</span>}
                 </button>
               )
             })
