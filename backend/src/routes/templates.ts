@@ -182,5 +182,10 @@ templatesRoute.delete('/:templateKey', async (c) => {
     .collection<Category>('categories')
     .updateMany({ 'templates.template_id': template._id }, { $pull: { templates: { template_id: template._id } } })
 
-  return c.json({ deleted: true })
+  // A category is reachable through the projects of its templates, so one that
+  // just lost its last template belongs to no project and would linger unseen
+  // and undeletable. The grouping goes when the last thing it grouped goes.
+  const { deletedCount } = await db.collection<Category>('categories').deleteMany({ templates: { $size: 0 } })
+
+  return c.json({ deleted: true, categories_removed: deletedCount })
 })

@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { ObjectId, MongoServerError } from 'mongodb'
+import { ObjectId, MongoServerError, type Filter } from 'mongodb'
 import { getDb } from '../db.js'
 import {
   createCategorySchema,
@@ -10,7 +10,7 @@ import {
 import type { Template } from '../models/template.js'
 import type { Project } from '../models/project.js'
 import type { AuthEnv } from '../middleware/dashboardAuth.js'
-import { hasProjectAccess } from '../lib/access.js'
+import { allowedProjectIds, hasProjectAccess } from '../lib/access.js'
 import type { AuthUser } from '../middleware/dashboardAuth.js'
 
 export const categoriesRoute = new Hono<AuthEnv>()
@@ -61,11 +61,10 @@ async function resolveAttachments(
 }
 
 /**
- * Whether this user may rename or delete a whole category. Categories are
- * global, so a non-admin could otherwise rename or destroy a grouping built
- * entirely out of projects they cannot even see. Admins may always act; anyone
- * else needs access to every project represented in the category — which makes
- * an empty category editable by anyone.
+ * Whether this user may rename or delete a whole category. A non-admin could
+ * otherwise rename or destroy a grouping built partly out of projects they
+ * cannot even see. Admins may always act; anyone else needs access to every
+ * project represented in the category.
  */
 function canModifyCategory(user: AuthUser, category: Category): boolean {
   if (user.role === 'admin') return true
@@ -73,8 +72,32 @@ function canModifyCategory(user: AuthUser, category: Category): boolean {
   return projectIds.every((projectId) => hasProjectAccess(user, projectId))
 }
 
-// Create a category, optionally with its first template attachments. Both land
-// in a single insert, so a category is never left half-populated.
+/**
+ * A category is visible to whoever shares a project with it. Two developers on
+ * the same project see each other's groupings; someone on a different project
+ * does not see them at all, which is why this is a query filter and not a
+ * post-fetch check — the rows never leave the database.
+ *
+ * Admins get an empty filter, so they still see everything.
+ */
+function visibleToUser(user: AuthUser): Filter<Category> {
+  const allowed = allowedProjectIds(user)
+  return allowed === null ? {} : { 'templates.project_id': { $in: allowed } }
+}
+
+/**
+ * The attachments this user is allowed to know about. A category can span
+ * several projects, so sharing one project with it is enough to see the
+ * category, but never enough to see the parts of it that live elsewhere.
+ */
+function visibleAttachments(user: AuthUser, category: Category): AttachedTemplate[] {
+  return category.templates.filter((t) => hasProjectAccess(user, t.project_id.toString()))
+}
+
+// Create a category together with its template attachments. Both land in a
+// single insert, so a category is never left half-populated — and since the
+// attachments are what place it in a project, it is never left unreachable
+// either.
 categoriesRoute.post('/', async (c) => {
   const body = await c.req.json().catch(() => null)
   const parsed = createCategorySchema.safeParse(body)
@@ -82,19 +105,16 @@ categoriesRoute.post('/', async (c) => {
     return c.json({ error: 'Invalid input', details: parsed.error.flatten() }, 400)
   }
 
-  const requested = parsed.data.templates ?? []
-  let attachments: AttachedTemplate[] = []
-  if (requested.length > 0) {
-    const resolved = await resolveAttachments(c.get('user'), requested)
-    if (!resolved.ok) return c.json({ error: resolved.error }, resolved.status)
-    attachments = resolved.attachments
-  }
+  const resolved = await resolveAttachments(c.get('user'), parsed.data.templates)
+  if (!resolved.ok) return c.json({ error: resolved.error }, resolved.status)
+  const attachments = resolved.attachments
 
   const db = getDb()
   const category: Category = {
     // Category names are stored upper-case whatever the caller typed, so
-    // "Welcome", "welcome" and "WELCOME" are one category, not three — the
-    // unique index on `name` then enforces that for free.
+    // "Welcome", "welcome" and "WELCOME" are one category, not three. The
+    // unique index on { templates.project_id, name } then enforces that within
+    // each project, so a different team may still use the same name.
     name: parsed.data.name.trim().toUpperCase(),
     templates: attachments,
     created_at: new Date(),
@@ -108,16 +128,31 @@ categoriesRoute.post('/', async (c) => {
     )
   } catch (err) {
     if (err instanceof MongoServerError && err.code === 11000) {
-      return c.json({ error: `A category named "${category.name}" already exists` }, 409)
+      return c.json({ error: `A category named "${category.name}" already exists in one of these projects` }, 409)
     }
     throw err
   }
 })
 
-// List all categories with a live count of attached templates (across every project)
+// Every category the caller shares a project with, each with a live count of
+// its attached templates. `templates` carries only the attachments this user
+// may see; `template_count` stays the true total, so a category reaching into
+// a project they cannot access still reports its real size.
 categoriesRoute.get('/', async (c) => {
-  const categories = await getDb().collection<Category>('categories').find({}).sort({ name: 1 }).toArray()
-  return c.json(categories.map((cat) => ({ ...cat, template_count: cat.templates.length })))
+  const user = c.get('user')
+  const categories = await getDb()
+    .collection<Category>('categories')
+    .find(visibleToUser(user))
+    .sort({ name: 1 })
+    .toArray()
+
+  return c.json(
+    categories.map((cat) => ({
+      ...cat,
+      templates: visibleAttachments(user, cat),
+      template_count: cat.templates.length,
+    }))
+  )
 })
 
 /**
@@ -139,7 +174,13 @@ categoriesRoute.get('/:categoryId', async (c) => {
   if (!category) return c.json({ error: 'Category not found' }, 404)
 
   const user = c.get('user')
-  const visible = category.templates.filter((t) => hasProjectAccess(user, t.project_id.toString()))
+  const visible = visibleAttachments(user, category)
+  // Sharing no project with this category means it should not exist as far as
+  // this caller is concerned — 404 rather than 403, so the reply does not
+  // confirm that a category by this id is there at all.
+  if (user.role !== 'admin' && visible.length === 0) {
+    return c.json({ error: 'Category not found' }, 404)
+  }
   const hiddenCount = category.templates.length - visible.length
 
   const [templates, projects] = await Promise.all([
@@ -196,6 +237,10 @@ categoriesRoute.patch('/:categoryId', async (c) => {
   if (!category) return c.json({ error: 'Category not found' }, 404)
 
   const user = c.get('user')
+  // Invisible categories are reported as missing, exactly as the read does.
+  if (user.role !== 'admin' && visibleAttachments(user, category).length === 0) {
+    return c.json({ error: 'Category not found' }, 404)
+  }
   // Access to the category as it stands today...
   if (!canModifyCategory(user, category)) {
     return c.json({ error: 'This category holds templates from projects you cannot access' }, 403)
@@ -215,7 +260,7 @@ categoriesRoute.patch('/:categoryId', async (c) => {
     await db.collection<Category>('categories').updateOne({ _id: category._id }, { $set: set })
   } catch (err) {
     if (err instanceof MongoServerError && err.code === 11000) {
-      return c.json({ error: `A category named "${set.name}" already exists` }, 409)
+      return c.json({ error: `A category named "${set.name}" already exists in one of these projects` }, 409)
     }
     throw err
   }
@@ -233,7 +278,12 @@ categoriesRoute.delete('/:categoryId', async (c) => {
   const db = getDb()
   const category = await db.collection<Category>('categories').findOne({ _id: new ObjectId(categoryId) })
   if (!category) return c.json({ error: 'Category not found' }, 404)
-  if (!canModifyCategory(c.get('user'), category)) {
+
+  const user = c.get('user')
+  if (user.role !== 'admin' && visibleAttachments(user, category).length === 0) {
+    return c.json({ error: 'Category not found' }, 404)
+  }
+  if (!canModifyCategory(user, category)) {
     return c.json({ error: 'This category holds templates from projects you cannot access' }, 403)
   }
 

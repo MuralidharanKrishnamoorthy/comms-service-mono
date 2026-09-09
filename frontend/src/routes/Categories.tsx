@@ -334,6 +334,12 @@ function EditCategoryModal({
       return
     }
     setNameError(null)
+    // Detaching the last template would leave the category in no project, and
+    // so visible to no one — deleting it is the way to get rid of it.
+    if (selection.length === 0) {
+      setBanner('Keep at least one template, or delete the category instead.')
+      return
+    }
     setSubmitting(true)
     try {
       await updateCategory(category._id, { name: trimmed, templates: selection })
@@ -436,8 +442,9 @@ function CreateCategoryModal({ onClose, onCreated }: { onClose: () => void; onCr
   const { projects } = useStore()
   const [name, setName] = useState('')
   // Starts empty on purpose: a new category picks its own project rather than
-  // inheriting the top bar's, so nothing is added by default. Adding templates
-  // is optional — a category can be created with none and filled in later.
+  // inheriting the top bar's, so nothing is added by default. At least one
+  // template must be picked before saving — that is what puts the category in
+  // a project, and so decides which teammates can see it.
   const [projectId, setProjectId] = useState('')
   const [templates, setTemplates] = useState<Template[]>([])
   const [templatesLoading, setTemplatesLoading] = useState(false)
@@ -490,6 +497,12 @@ function CreateCategoryModal({ onClose, onCreated }: { onClose: () => void; onCr
       return
     }
     setNameError(null)
+    // A category lives in the projects of its templates — with none picked it
+    // would belong nowhere and nobody, including its author, could see it.
+    if (picked.length === 0) {
+      setBanner('Pick at least one template — that is what decides who can see this category.')
+      return
+    }
     setSubmitting(true)
     try {
       await createCategory(
