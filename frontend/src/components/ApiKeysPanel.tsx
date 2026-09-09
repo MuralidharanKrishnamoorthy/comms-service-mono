@@ -27,10 +27,13 @@ export function ApiKeysPanel({ projectId }: { projectId: string }) {
 
   const [pendingDelete, setPendingDelete] = useState<ApiKeyRow | null>(null)
 
+  // Returns its promise so a row action can hold its busy state until the
+  // reloaded list is on screen, rather than releasing it while the old rows
+  // are still rendered.
   const refresh = () => {
     setLoading(true)
     setUnreachable(false)
-    listApiKeys(projectId)
+    return listApiKeys(projectId)
       .then(setKeys)
       .catch((err) => {
         if (err instanceof ApiError && err.isNetwork) setUnreachable(true)
@@ -39,7 +42,11 @@ export function ApiKeysPanel({ projectId }: { projectId: string }) {
       .finally(() => setLoading(false))
   }
 
-  useEffect(refresh, [projectId])
+  // Wrapped, not passed directly: an effect callback returning a promise would
+  // be mistaken for a cleanup function.
+  useEffect(() => {
+    void refresh()
+  }, [projectId])
 
   const isOwner = (k: ApiKeyRow) => user?.id === k.created_by
   const canRevoke = (k: ApiKeyRow) =>
@@ -69,7 +76,7 @@ export function ApiKeysPanel({ projectId }: { projectId: string }) {
     try {
       await deleteApiKey(projectId, k._id)
       setPendingDelete(null)
-      refresh()
+      await refresh()
     } catch (err) {
       setBanner(err instanceof ApiError ? err.message : 'Could not delete the key.')
       setPendingDelete(null)
@@ -84,11 +91,15 @@ export function ApiKeysPanel({ projectId }: { projectId: string }) {
     try {
       await revokeApiKey(projectId, k._id)
       setPendingRevoke(null)
-      refresh()
+      await refresh()
     } catch (err) {
       if (err instanceof ApiError) setBanner(err.message)
       else setBanner('Could not revoke the key.')
       setPendingRevoke(null)
+    } finally {
+      // Every exit path releases the row. Leaving this to the success branch
+      // alone once pinned busyId to the revoked key for the life of the panel,
+      // which left its delete button disabled until the page was reloaded.
       setBusyId(null)
     }
   }
