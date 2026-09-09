@@ -1,6 +1,6 @@
-import type { ComponentChildren, FunctionComponent } from 'preact'
+import type { ComponentChildren } from 'preact'
+import { useState } from 'preact/hooks'
 import { Router, route, getCurrentUrl } from 'preact-router'
-import { Link as MatchLink } from 'preact-router/match'
 import { StoreProvider } from './store'
 import { useAuth } from './auth'
 import { Login } from './routes/Login'
@@ -15,11 +15,43 @@ import { Logs } from './routes/Logs'
 import { UsersAccess, RoleBadge } from './routes/UsersAccess'
 import { Profile } from './routes/Profile'
 
-const NavLink = MatchLink as unknown as FunctionComponent<{
+// Whether a nav item should read as active for the current path. Detail routes
+// count as their section — /projects/:id lights up Projects, /categories/:id
+// lights up Categories — so navigating deeper never leaves the sidebar blank.
+function navIsActive(path: string, href: string): boolean {
+  const base = path.replace(/\?.*$/, '')
+  if (href === '/projects') {
+    return base === '/' || base === '/projects' || base.startsWith('/projects/')
+  }
+  return base === href || base.startsWith(`${href}/`)
+}
+
+// A plain anchor rather than preact-router/match's Link: the sidebar lives
+// outside the <Router>, and Match's active state doesn't reliably resync when
+// the shell remounts on login. Driving `active` from the Router's onChange —
+// the same event that swaps the page — keeps the two in lockstep.
+function NavLink({
+  href,
+  path,
+  children,
+}: {
   href: string
-  activeClassName?: string
+  path: string
   children?: ComponentChildren
-}>
+}) {
+  return (
+    <a
+      href={href}
+      class={navIsActive(path, href) ? 'active' : undefined}
+      onClick={(e) => {
+        e.preventDefault()
+        route(href)
+      }}
+    >
+      {children}
+    </a>
+  )
+}
 
 function NavIcon({ d }: { d: string }) {
   return (
@@ -37,7 +69,7 @@ const ICONS = {
   users: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 0 .01M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
 }
 
-function Sidebar() {
+function Sidebar({ path }: { path: string }) {
   const { user } = useAuth()
   return (
     <aside class="sidebar">
@@ -45,24 +77,24 @@ function Sidebar() {
         <span>Notifyr</span>
       </div>
       <nav class="nav">
-        <NavLink href="/projects" activeClassName="active">
+        <NavLink href="/projects" path={path}>
           <NavIcon d={ICONS.projects} />
           Projects
         </NavLink>
-        <NavLink href="/templates" activeClassName="active">
+        <NavLink href="/templates" path={path}>
           <NavIcon d={ICONS.templates} />
           Templates
         </NavLink>
-        <NavLink href="/categories" activeClassName="active">
+        <NavLink href="/categories" path={path}>
           <NavIcon d={ICONS.categories} />
           Categories
         </NavLink>
-        <NavLink href="/logs" activeClassName="active">
+        <NavLink href="/logs" path={path}>
           <NavIcon d={ICONS.logs} />
           Notification Logs
         </NavLink>
         {user?.role === 'admin' && (
-          <NavLink href="/admin/users" activeClassName="active">
+          <NavLink href="/admin/users" path={path}>
             <NavIcon d={ICONS.users} />
             Users & Access
           </NavLink>
@@ -111,14 +143,18 @@ function Topbar() {
 // The authenticated shell. StoreProvider lives here so the projects fetch only
 // runs once we actually have a session.
 function Shell() {
+  // The current path, kept in sync by the Router's own onChange so the sidebar
+  // highlight and the routed page can never disagree — even right after login,
+  // when the shell remounts on a URL left over from before.
+  const [path, setPath] = useState(getCurrentUrl())
   return (
     <StoreProvider>
       <div class="shell">
-        <Sidebar />
+        <Sidebar path={path} />
         <div class="main">
           <Topbar />
           <main class="content">
-            <Router>
+            <Router onChange={(e) => setPath(e.url)}>
               <Projects path="/" />
               <Projects path="/projects" />
               <ProjectDetail path="/projects/:id" />

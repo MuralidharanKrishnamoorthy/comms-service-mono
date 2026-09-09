@@ -1,6 +1,7 @@
 import { createContext } from 'preact'
 import type { ComponentChildren } from 'preact'
 import { useCallback, useContext, useEffect, useState } from 'preact/hooks'
+import { route } from 'preact-router'
 import * as api from './api'
 import { ApiError, setUnauthorizedHandler } from './api'
 import type { AuthUser } from './types'
@@ -21,7 +22,12 @@ export function AuthProvider({ children }: { children: ComponentChildren }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    setUnauthorizedHandler(() => setUser(null))
+    setUnauthorizedHandler(() => {
+      setUser(null)
+      // Drop the deep link the expired session was on, so the next sign-in
+      // starts at /projects instead of leaving the sidebar on a stale page.
+      route('/projects', true)
+    })
     return () => setUnauthorizedHandler(null)
   }, [])
 
@@ -55,6 +61,9 @@ export function AuthProvider({ children }: { children: ComponentChildren }) {
       if (!(err instanceof ApiError)) throw err
     }
     setUser(null)
+    // Reset the URL so the next sign-in mounts the shell at /projects; leaving
+    // it on, say, /categories makes the sidebar highlight the wrong page.
+    route('/projects', true)
   }, [])
 
   const refreshUser = useCallback(async () => {
