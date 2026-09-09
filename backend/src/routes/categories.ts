@@ -73,6 +73,18 @@ function canModifyCategory(user: AuthUser, category: Category): boolean {
   return projectIds.every((projectId) => hasProjectAccess(user, projectId))
 }
 
+/**
+ * Whether this user should even see a category exists. A non-admin has no
+ * business seeing a grouping built entirely out of projects they cannot
+ * access, so it stays hidden from their list and detail. An empty category
+ * belongs to no project, so it's visible to everyone.
+ */
+function canViewCategory(user: AuthUser, category: Category): boolean {
+  if (user.role === 'admin') return true
+  if (category.templates.length === 0) return true
+  return category.templates.some((t) => hasProjectAccess(user, t.project_id.toString()))
+}
+
 // Create a category, optionally with its first template attachments. Both land
 // in a single insert, so a category is never left half-populated.
 categoriesRoute.post('/', async (c) => {
@@ -114,10 +126,17 @@ categoriesRoute.post('/', async (c) => {
   }
 })
 
-// List all categories with a live count of attached templates (across every project)
+// List all categories with a live count of attached templates (across every
+// project), minus any a non-admin can't reach — a category whose templates all
+// live in projects they can't access never shows up for them.
 categoriesRoute.get('/', async (c) => {
+  const user = c.get('user')
   const categories = await getDb().collection<Category>('categories').find({}).sort({ name: 1 }).toArray()
-  return c.json(categories.map((cat) => ({ ...cat, template_count: cat.templates.length })))
+  return c.json(
+    categories
+      .filter((cat) => canViewCategory(user, cat))
+      .map((cat) => ({ ...cat, template_count: cat.templates.length }))
+  )
 })
 
 /**
@@ -139,6 +158,10 @@ categoriesRoute.get('/:categoryId', async (c) => {
   if (!category) return c.json({ error: 'Category not found' }, 404)
 
   const user = c.get('user')
+  // A grouping built entirely from projects this user can't access shouldn't
+  // even be confirmed to exist — treat it as not found, matching the list.
+  if (!canViewCategory(user, category)) return c.json({ error: 'Category not found' }, 404)
+
   const visible = category.templates.filter((t) => hasProjectAccess(user, t.project_id.toString()))
   const hiddenCount = category.templates.length - visible.length
 
