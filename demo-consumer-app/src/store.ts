@@ -1,63 +1,50 @@
+import {
+  getStoreDb,
+  nextSequence,
+  type OrderDoc,
+  type OrderLine,
+  type PaymentDoc,
+  type ProductDoc,
+} from './db.js'
+
 /**
- * The storefront's own world: a product catalogue and the orders placed against
- * it. This is the part a real consuming app already has before Notifyr enters
- * the picture, and it is deliberately shaped like real application data —
- * nested customer and order objects, an items array, numbers as numbers.
- *
- * Orders live in memory. Restarting the app forgets them, which is exactly what
- * a demo wants.
+ * The storefront's own domain: catalogue, orders, payments. Everything here is
+ * ordinary application code that would exist whether or not Notifyr did.
  */
 
-export interface Product {
-  sku: string
-  name: string
-  price: number
-}
-
-export interface OrderItem {
-  sku: string
-  name: string
-  qty: number
-  price: number
-}
-
-export interface Order {
-  order_id: string
-  customer: {
-    full_name: string
-    email: string
-  }
-  items: OrderItem[]
-  currency: string
-  total: number
-  placed_at: string
-  shipment?: {
-    carrier: string
-    tracking_number: string
-    shipped_at: string
-  }
-}
-
 export const STORE_NAME = process.env.STORE_NAME ?? 'Acme Storefront'
+const CURRENCY = 'USD'
+const TAX_RATE = 0.08
 
-export const CATALOGUE: Product[] = [
-  { sku: 'ACM-MSE-01', name: 'Wireless Mouse', price: 24.5 },
-  { sku: 'ACM-CBL-02', name: 'USB-C Cable (2m)', price: 8.99 },
-  { sku: 'ACM-KBD-03', name: 'Mechanical Keyboard', price: 76.5 },
-  { sku: 'ACM-HUB-04', name: '7-Port USB Hub', price: 32.0 },
-  { sku: 'ACM-STD-05', name: 'Laptop Stand', price: 41.25 },
-  { sku: 'ACM-CAM-06', name: '1080p Webcam', price: 58.0 },
-]
-
-const orders = new Map<string, Order>()
-let sequence = 48213
-
-export function listOrders(): Order[] {
-  return [...orders.values()].sort((a, b) => b.placed_at.localeCompare(a.placed_at))
+export class StoreError extends Error {
+  readonly status: number
+  constructor(message: string, status = 400) {
+    super(message)
+    this.status = status
+  }
 }
 
-export function getOrder(orderId: string): Order | undefined {
-  return orders.get(orderId)
+export function listProducts(): Promise<ProductDoc[]> {
+  return getStoreDb()
+    .collection<ProductDoc>('products')
+    .find({ active: true }, { projection: { _id: 0 } })
+    .sort({ name: 1 })
+    .toArray()
+}
+
+export function listOrders(limit = 12): Promise<OrderDoc[]> {
+  return getStoreDb()
+    .collection<OrderDoc>('orders')
+    .find({}, { projection: { _id: 0 } })
+    .sort({ created_at: -1 })
+    .limit(limit)
+    .toArray()
+}
+
+export function findOrder(orderNo: string): Promise<OrderDoc | null> {
+  return getStoreDb()
+    .collection<OrderDoc>('orders')
+    .findOne({ order_no: orderNo }, { projection: { _id: 0 } })
 }
 
 export interface CartLine {
@@ -65,97 +52,143 @@ export interface CartLine {
   qty: number
 }
 
-export class CheckoutError extends Error {}
-
-export function placeOrder(input: {
-  full_name: string
-  email: string
-  lines: CartLine[]
-}): Order {
-  const name = input.full_name.trim()
-  const email = input.email.trim()
-  if (!name) throw new CheckoutError('A customer name is required')
-  if (!email.includes('@')) throw new CheckoutError('A valid customer email is required')
-  if (input.lines.length === 0) throw new CheckoutError('The cart is empty')
-
-  const items: OrderItem[] = input.lines.map((line) => {
-    const product = CATALOGUE.find((p) => p.sku === line.sku)
-    if (!product) throw new CheckoutError(`No such product: ${line.sku}`)
-    const qty = Math.trunc(line.qty)
-    if (qty < 1 || qty > 99) throw new CheckoutError(`Bad quantity for ${product.name}`)
-    return { sku: product.sku, name: product.name, qty, price: product.price }
-  })
-
-  sequence += 1
-  const order: Order = {
-    order_id: `ORD-${sequence}`,
-    customer: { full_name: name, email },
-    items,
-    currency: 'USD',
-    total: Number(items.reduce((sum, i) => sum + i.price * i.qty, 0).toFixed(2)),
-    placed_at: new Date().toISOString(),
-  }
-  orders.set(order.order_id, order)
-  return order
-}
-
-const CARRIERS = ['BlueDart', 'DHL Express', 'FedEx']
-
-export function markShipped(orderId: string): Order {
-  const order = orders.get(orderId)
-  if (!order) throw new CheckoutError(`No such order: ${orderId}`)
-  if (order.shipment) throw new CheckoutError(`${orderId} has already shipped`)
-
-  order.shipment = {
-    carrier: CARRIERS[Math.floor(Math.random() * CARRIERS.length)],
-    tracking_number: `TRK${Math.floor(Math.random() * 900_000_000 + 100_000_000)}`,
-    shipped_at: new Date().toISOString(),
-  }
-  return order
+function money(value: number): number {
+  return Number(value.toFixed(2))
 }
 
 /**
- * The step every consuming app has to perform for itself: reduce its own rich
- * internal record down to the flat primitives one template declares. Notifyr
- * never receives the nested order — only already-decided strings and numbers.
- *
- * Keep the keys here identical to the variables the template declares, or the
- * send comes back 422 naming exactly what is missing.
+ * Creates an order in `pending_payment`. Prices are read from the catalogue
+ * here and frozen onto the order, never taken from the request — a client that
+ * posts its own prices is a client that decides what it pays.
  */
-export function orderConfirmedVariables(order: Order) {
-  const deliveryDate = new Date(Date.parse(order.placed_at) + 4 * 24 * 60 * 60 * 1000)
+export async function createOrder(input: {
+  full_name: string
+  email: string
+  lines: CartLine[]
+}): Promise<OrderDoc> {
+  const name = input.full_name.trim()
+  const email = input.email.trim().toLowerCase()
+  if (!name) throw new StoreError('A customer name is required')
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new StoreError('A valid customer email is required')
+  if (!Array.isArray(input.lines) || input.lines.length === 0) throw new StoreError('The cart is empty')
+  if (input.lines.length > 20) throw new StoreError('Too many different items in one order')
+
+  const db = getStoreDb()
+  const lines: OrderLine[] = []
+
+  for (const line of input.lines) {
+    const product = await db.collection<ProductDoc>('products').findOne({ sku: line.sku, active: true })
+    if (!product) throw new StoreError(`No such product: ${line.sku}`, 404)
+
+    const qty = Math.trunc(Number(line.qty))
+    if (!Number.isFinite(qty) || qty < 1 || qty > 99) {
+      throw new StoreError(`Bad quantity for ${product.name}`)
+    }
+    lines.push({
+      sku: product.sku,
+      name: product.name,
+      qty,
+      price: product.price,
+      line_total: money(product.price * qty),
+    })
+  }
+
+  const subtotal = money(lines.reduce((sum, l) => sum + l.line_total, 0))
+  const tax = money(subtotal * TAX_RATE)
+  const now = new Date()
+
+  const order: OrderDoc = {
+    order_no: `ORD-${String(await nextSequence('order_no')).padStart(6, '0')}`,
+    customer: { full_name: name, email },
+    lines,
+    currency: CURRENCY,
+    subtotal,
+    tax,
+    total: money(subtotal + tax),
+    status: 'pending_payment',
+    payment_ref: null,
+    invoice: null,
+    notification: { status: 'not_sent', message_log_id: null, error: null, at: null },
+    created_at: now,
+    updated_at: now,
+  }
+
+  await db.collection<OrderDoc>('orders').insertOne(order)
+  const { _id, ...clean } = order
+  return clean as OrderDoc
+}
+
+export async function recordPayment(payment: Omit<PaymentDoc, '_id'>): Promise<void> {
+  await getStoreDb().collection<PaymentDoc>('payments').insertOne(payment)
+}
+
+/**
+ * Moves an order to `paid` and stamps it with an invoice number — but only if
+ * it is still `pending_payment`. Two payment callbacks racing for the same
+ * order means exactly one of them matches, so exactly one invoice number is
+ * issued and exactly one email can follow.
+ */
+export async function markPaid(orderNo: string, gatewayRef: string): Promise<OrderDoc | null> {
+  const invoiceNumber = `INV-${new Date().getFullYear()}-${String(
+    await nextSequence('invoice_no')
+  ).padStart(5, '0')}`
+
+  const result = await getStoreDb()
+    .collection<OrderDoc>('orders')
+    .findOneAndUpdate(
+      { order_no: orderNo, status: 'pending_payment' },
+      {
+        $set: {
+          status: 'paid',
+          payment_ref: gatewayRef,
+          invoice: { number: invoiceNumber, issued_at: new Date() },
+          updated_at: new Date(),
+        },
+      },
+      { returnDocument: 'after', projection: { _id: 0 } }
+    )
+
+  return result ?? null
+}
+
+export async function markPaymentFailed(orderNo: string): Promise<void> {
+  await getStoreDb()
+    .collection<OrderDoc>('orders')
+    .updateOne(
+      { order_no: orderNo, status: 'pending_payment' },
+      { $set: { status: 'payment_failed', updated_at: new Date() } }
+    )
+}
+
+export async function recordNotification(
+  orderNo: string,
+  outcome: OrderDoc['notification']
+): Promise<void> {
+  await getStoreDb()
+    .collection<OrderDoc>('orders')
+    .updateOne({ order_no: orderNo }, { $set: { notification: outcome, updated_at: new Date() } })
+}
+
+/**
+ * The step every consuming app performs for itself: reduce a rich internal
+ * record down to the flat primitives the template declares. Notifyr never sees
+ * the order document — only already-formatted strings. Currency symbols,
+ * rounding and date formatting are decisions this app makes, not the service.
+ */
+export function invoiceVariables(order: OrderDoc) {
+  const itemsSummary = order.lines.map((l) => `${l.qty}x ${l.name}`).join(', ')
+  const amount = (value: number) => `${value.toFixed(2)} ${order.currency}`
+
   return {
     customer_name: order.customer.full_name,
-    order_id: order.order_id,
-    order_total: `${order.total.toFixed(2)} ${order.currency}`,
-    delivery_date: deliveryDate.toDateString(),
-    order_url: `${publicUrl()}/orders/${order.order_id}`,
+    invoice_no: order.invoice?.number ?? '',
+    order_no: order.order_no,
+    items_summary: itemsSummary,
+    subtotal: amount(order.subtotal),
+    tax: amount(order.tax),
+    amount_paid: amount(order.total),
+    payment_ref: order.payment_ref ?? '',
+    paid_on: (order.invoice?.issued_at ?? new Date()).toUTCString(),
     store_name: STORE_NAME,
   }
-}
-
-export function orderShippedVariables(order: Order) {
-  if (!order.shipment) throw new CheckoutError(`${order.order_id} has not shipped yet`)
-  return {
-    customer_name: order.customer.full_name,
-    order_id: order.order_id,
-    carrier: order.shipment.carrier,
-    tracking_number: order.shipment.tracking_number,
-    tracking_url: `https://track.example.com/${order.shipment.tracking_number}`,
-    store_name: STORE_NAME,
-  }
-}
-
-/** SMS has its own, shorter variable list — the same order, fewer fields. */
-export function orderShippedSmsVariables(order: Order) {
-  const full = orderShippedVariables(order)
-  return {
-    store_name: full.store_name,
-    order_id: full.order_id,
-    tracking_url: full.tracking_url,
-  }
-}
-
-function publicUrl(): string {
-  return process.env.PUBLIC_URL ?? `http://localhost:${process.env.PORT ?? 4321}`
 }
