@@ -7,7 +7,9 @@
     "demo-consumer-app"
   ],
   "scripts": {
-    "dev": "concurrently \"npm run dev --workspace=backend\" \"npm run dev --workspace=frontend\""
+    "dev": "concurrently -n api,dash -c cyan,magenta \"npm run dev --workspace=backend\" \"npm run dev --workspace=frontend\"",
+    "dev:all": "concurrently -n api,dash,store -c cyan,magenta,yellow \"npm run dev --workspace=backend\" \"npm run dev --workspace=frontend\" \"npm run dev --workspace=demo-consumer-app\"",
+    "dev:demo": "npm run dev --workspace=demo-consumer-app"
   },
   "devDependencies": {
     "concurrently": "^10.0.5"
