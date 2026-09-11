@@ -1,109 +1,107 @@
 import { serve } from '@hono/node-server'
 import { Hono } from 'hono'
-import { readFile } from 'node:fs/promises'
-import { fileURLToPath } from 'node:url'
-import path from 'node:path'
+import { page } from './page.js'
+import { config, sendNotification, type Channel } from './notifyr.js'
+import {
+  CheckoutError,
+  STORE_NAME,
+  getOrder,
+  listOrders,
+  markShipped,
+  orderConfirmedVariables,
+  orderShippedSmsVariables,
+  orderShippedVariables,
+  placeOrder,
+} from './store.js'
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const DATA_PATH = path.join(__dirname, '..', 'data.json')
-
-const COMMS_BASE_URL = process.env.COMMS_BASE_URL
-const COMMS_API_KEY = process.env.COMMS_API_KEY
-
-if (!COMMS_BASE_URL) throw new Error('COMMS_BASE_URL is not set in .env')
-if (!COMMS_API_KEY) throw new Error('COMMS_API_KEY is not set in .env')
-
-// Realistic shape: nested customer/order objects, an items array, mixed
-// number/string types — the kind of record a real e-commerce DB actually
-// returns, not a pre-flattened one built for this demo.
-interface OrderItem {
-  name: string
-  qty: number
-  price: number
-}
-
-interface OrderRecord {
-  id: number
-  customer: {
-    full_name: string
-    email: string
-  }
-  order: {
-    order_id: string
-    currency: string
-    items: OrderItem[]
-    total: number
-  }
-  placed_at: string
-}
-
-async function loadOrders(): Promise<OrderRecord[]> {
-  const raw = await readFile(DATA_PATH, 'utf-8')
-  return JSON.parse(raw)
-}
-
-// This is the part a real consuming app's backend always has to do: pull the
-// exact primitive values a template needs out of its own richer internal
-// data shape, and compute any derived text itself — the Communication
-// Service only ever receives flat, already-decided strings/numbers, never
-// nested objects or arrays.
-function buildTemplateData(order: OrderRecord) {
-  const itemsSummary =
-    order.order.items.length > 0
-      ? order.order.items.map((item) => `${item.qty}x ${item.name}`).join(', ')
-      : 'No items'
-
-  return {
-    user_name: order.customer.full_name,
-    order_id: order.order.order_id,
-    amount: `${order.order.total.toFixed(2)} ${order.order.currency}`,
-    items_summary: itemsSummary,
-  }
-}
+/**
+ * A pretend storefront that owns no notification code.
+ *
+ * Placing an order writes the order to the store's own records and then makes
+ * one HTTP call to Notifyr. There is no provider SDK here, no email template,
+ * no retry loop and no delivery tracking — those belong to the service, and
+ * that division is the whole point of the demo.
+ */
 
 const app = new Hono()
 
-app.get('/', (c) => c.text('Demo Consumer App — POST /trigger-send/:id to fire a real notification'))
+app.get('/', (c) => c.html(page()))
 
-app.post('/trigger-send/:id', async (c) => {
-  const id = Number(c.req.param('id'))
-  const orders = await loadOrders()
-  const order = orders.find((o) => o.id === id)
+app.get('/api/config', (c) => c.json({ store_name: STORE_NAME, ...config() }))
 
-  if (!order) {
-    return c.json({ error: `No order with id ${id} in data.json` }, 404)
+app.get('/api/orders', (c) => c.json(listOrders()))
+
+app.post('/api/checkout', async (c) => {
+  const body = await c.req.json().catch(() => null)
+
+  let order
+  try {
+    order = placeOrder({
+      full_name: String(body?.full_name ?? ''),
+      email: String(body?.email ?? ''),
+      lines: Array.isArray(body?.lines) ? body.lines : [],
+    })
+  } catch (err) {
+    if (err instanceof CheckoutError) return c.json({ error: err.message }, 400)
+    throw err
   }
 
-  const payload = {
-    template_key: 'ORDER_CREATED',
+  const notifyr = await sendNotification({
+    template_key: 'ORDER_CONFIRMED',
     channel: 'email',
     recipient: order.customer.email,
-    data: buildTemplateData(order),
-  }
-
-  const res = await fetch(`${COMMS_BASE_URL}/v1/notifications/send`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${COMMS_API_KEY}`,
-    },
-    body: JSON.stringify(payload),
+    data: orderConfirmedVariables(order),
   })
 
-  const result = await res.json()
+  // The order stands whether or not the email went out. A storefront that
+  // rolled back a paid order because a notification failed would be worse than
+  // one that sends the mail late — and Notifyr retries on its own anyway.
+  logOutcome('ORDER_CONFIRMED', order.order_id, notifyr.status)
 
-  return c.json(
-    {
-      source_order: order,
-      request_sent: payload,
-      comms_service_response: result,
-    },
-    res.status as 200 | 400 | 401 | 403 | 404 | 422 | 502
-  )
+  return c.json({ order, notifyr, orders: listOrders() })
 })
+
+app.post('/api/orders/:orderId/ship', async (c) => {
+  const orderId = c.req.param('orderId')
+  const body = await c.req.json().catch(() => null)
+  const channel: Channel = body?.channel === 'sms' ? 'sms' : 'email'
+
+  if (!getOrder(orderId)) return c.json({ error: `No such order: ${orderId}` }, 404)
+
+  let order
+  try {
+    order = markShipped(orderId)
+  } catch (err) {
+    if (err instanceof CheckoutError) return c.json({ error: err.message }, 409)
+    throw err
+  }
+
+  // Same template, two channels, two different variable lists — the template
+  // decides what it needs and the app supplies exactly that.
+  const notifyr = await sendNotification({
+    template_key: 'ORDER_SHIPPED',
+    channel,
+    recipient: channel === 'sms' ? '+919000000000' : order.customer.email,
+    data: channel === 'sms' ? orderShippedSmsVariables(order) : orderShippedVariables(order),
+  })
+
+  logOutcome('ORDER_SHIPPED', order.order_id, notifyr.status)
+
+  return c.json({ order, notifyr, orders: listOrders() })
+})
+
+function logOutcome(templateKey: string, orderId: string, status: number) {
+  const verdict = status === 201 || status === 200 ? 'accepted' : `refused (${status || 'unreachable'})`
+  console.log(`[notifyr] ${templateKey} for ${orderId} — ${verdict}`)
+}
 
 const PORT = Number(process.env.PORT ?? 4321)
 
 serve({ fetch: app.fetch, port: PORT }, (info) => {
-  console.log(`Demo consumer app running on http://localhost:${info.port}`)
+  const cfg = config()
+  console.log(`${STORE_NAME} running on http://localhost:${info.port}`)
+  console.log(`  Notifyr: ${cfg.baseUrl}  key: ${cfg.keyPrefix}`)
+  if (!cfg.configured) {
+    console.warn('  No credentials yet — set COMMS_BASE_URL and COMMS_API_KEY in .env')
+  }
 })
