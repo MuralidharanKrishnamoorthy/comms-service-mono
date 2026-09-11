@@ -1,2 +1,7 @@
 node_modules/
 backend/.env
+demo-consumer-app/.env
+.env
+.env.*
+!.env.example
+backend/uploads/

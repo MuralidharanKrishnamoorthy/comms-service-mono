@@ -1,0 +1,6 @@
+{
+  // Use the TypeScript installed in this repo rather than the one bundled with
+  // the editor, so the squiggles in the IDE match what `npx tsc` reports.
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true
+}
