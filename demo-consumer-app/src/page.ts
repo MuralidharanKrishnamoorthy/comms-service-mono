@@ -72,18 +72,6 @@ export function page(): string {
   .order .oid { font:12.5px ui-monospace,Consolas,monospace; font-weight:700; }
   .order .who { font-size:12px; color:var(--muted); margin-top:2px; }
   .acts { display:flex; gap:6px; flex-wrap:wrap; margin-top:9px; }
-  .flow { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
-  @media (max-width:900px) { .flow { grid-template-columns:1fr; } }
-  .pane h3 { margin:0 0 6px; font-size:12px; text-transform:uppercase;
-    letter-spacing:.6px; color:var(--accent-ink); }
-  pre { margin:0; background:#f7f8f6; border:1px solid var(--border); border-radius:8px;
-    padding:11px; font:11.5px/1.5 ui-monospace,Consolas,monospace; color:#2b2f36;
-    overflow:auto; max-height:290px; white-space:pre-wrap; word-break:break-word; }
-  .status { display:inline-block; font:11px ui-monospace,Consolas,monospace; font-weight:700;
-    padding:3px 9px; border-radius:999px; margin-left:8px; }
-  .status.ok { background:#e3f1ea; color:var(--success); }
-  .status.bad { background:#f7e0da; color:var(--danger); }
-  .foot { color:var(--faint); font-size:12px; margin-top:22px; }
   code { font:12px ui-monospace,Consolas,monospace; background:#eff1ee;
     padding:1px 5px; border-radius:4px; }
 </style>
@@ -106,16 +94,6 @@ export function page(): string {
         <p class="hint">Ordinary storefront. Nothing here knows what an email is.</p>
         <div class="grid" id="catalogue"></div>
       </div>
-
-      <div class="card">
-        <h2>What just happened</h2>
-        <p class="hint">The app's own record, the exact request it sent, and Notifyr's reply.</p>
-        <div class="flow">
-          <div class="pane"><h3>1 · App's order</h3><pre id="paneOrder">—</pre></div>
-          <div class="pane"><h3>2 · Sent to Notifyr</h3><pre id="paneReq">—</pre></div>
-          <div class="pane"><h3>3 · Notifyr replied<span id="paneCode"></span></h3><pre id="paneRes">—</pre></div>
-        </div>
-      </div>
     </div>
 
     <div>
@@ -137,11 +115,6 @@ export function page(): string {
         <div id="orders"><div class="empty">No orders yet.</div></div>
       </div>
     </div>
-  </div>
-
-  <div class="foot">
-    Every notification above is sent by Notifyr. This app holds one API key and
-    calls <code>POST /v1/notifications/send</code>.
   </div>
 </main>
 
@@ -195,16 +168,6 @@ function renderCart() {
   });
 }
 
-function showExchange(result) {
-  document.getElementById('paneOrder').textContent = JSON.stringify(result.order, null, 2);
-  document.getElementById('paneReq').textContent = JSON.stringify(result.notifyr.request, null, 2);
-  document.getElementById('paneRes').textContent = JSON.stringify(result.notifyr.body, null, 2);
-  var code = document.getElementById('paneCode');
-  var status = result.notifyr.status;
-  code.className = 'status ' + (result.notifyr.ok ? 'ok' : 'bad');
-  code.textContent = status === 0 ? 'unreachable' : String(status);
-}
-
 function renderOrders(orders) {
   var box = document.getElementById('orders');
   if (!orders.length) { box.innerHTML = '<div class="empty">No orders yet.</div>'; return; }
@@ -253,7 +216,6 @@ document.getElementById('place').onclick = function () {
   }).then(function (res) {
     if (res.error) { alert(res.error); return; }
     cart = {}; renderCart();
-    showExchange(res);
     renderOrders(res.orders);
   }).catch(function (e) {
     alert('The storefront itself failed: ' + e);
@@ -266,7 +228,6 @@ function ship(orderId, channel) {
   post('/api/orders/' + encodeURIComponent(orderId) + '/ship', { channel: channel })
     .then(function (res) {
       if (res.error) { alert(res.error); return; }
-      showExchange(res);
       renderOrders(res.orders);
     })
     .catch(function (e) { alert('The storefront itself failed: ' + e); })
