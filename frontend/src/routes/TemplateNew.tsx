@@ -5,7 +5,8 @@ import { ApiError, API_BASE, createTemplate } from '../api'
 import type { Channel } from '../types'
 import { CHANNELS } from '../util'
 import { ChannelFields, variablesFor, type ChannelValues } from '../components/ChannelFields'
-import { BackLink, PageHeader } from '../components/ui'
+import { TemplatePreview } from '../components/TemplatePreview'
+import { BackLink, Breadcrumbs, CardHead, PageHeader } from '../components/ui'
 
 const CHANNEL_LABELS: Record<Channel, string> = { email: 'Email', sms: 'SMS', push: 'Push' }
 
@@ -14,8 +15,10 @@ export function TemplateNew(_props: { path?: string }) {
 
   const [templateKey, setTemplateKey] = useState('')
   const [name, setName] = useState('')
+  // Nothing pre-selected: which channels a template supports is a real
+  // decision, not something to inherit silently and discover after sending.
   const [enabled, setEnabled] = useState<Record<Channel, boolean>>({
-    email: true,
+    email: false,
     sms: false,
     push: false,
   })
@@ -25,6 +28,39 @@ export function TemplateNew(_props: { path?: string }) {
     push: {},
   })
   const [activeTab, setActiveTab] = useState<Channel>('email')
+  // Preview-only stand-ins for the {{variables}}. Never submitted, never saved.
+  // Held per channel: each channel is sent on its own, with its own variables,
+  // so email's {{variable_1}} and the SMS's are different things.
+  const [sampleValues, setSampleValues] = useState<Partial<Record<Channel, Record<string, string>>>>(
+    {}
+  )
+
+  const setSample = (ch: Channel) => (name: string, value: string) =>
+    setSampleValues((s) => ({ ...s, [ch]: { ...(s[ch] ?? {}), [name]: value } }))
+
+  /**
+   * Turning a channel off discards its draft. It was never going to be
+   * submitted — assembleBody skips disabled channels — and keeping it would
+   * leave stale content in the preview and resurrect it on a re-tick.
+   */
+  const toggleChannel = (ch: Channel, on: boolean) => {
+    setEnabled((prev) => ({ ...prev, [ch]: on }))
+
+    if (on) {
+      setActiveTab(ch)
+      return
+    }
+
+    setContent((c) => ({ ...c, [ch]: {} }))
+    setSampleValues((s) => ({ ...s, [ch]: {} }))
+    setChannelErrors((e) => ({ ...e, [ch]: {} }))
+
+    // Don't leave the tab sitting on a channel that no longer has content.
+    if (activeTab === ch) {
+      const next = CHANNELS.find((other) => other !== ch && enabled[other])
+      if (next) setActiveTab(next)
+    }
+  }
 
   const [topErrors, setTopErrors] = useState<Record<string, string | undefined>>({})
   const [channelErrors, setChannelErrors] = useState<Record<Channel, Record<string, string>>>({
@@ -156,100 +192,141 @@ export function TemplateNew(_props: { path?: string }) {
   return (
     <div>
       <BackLink href="/templates" label="Back to templates" onClick={() => route('/templates')} />
-      <PageHeader
-        title="New template"
-        subtitle={`Creating in ${selectedProject.name}.`}
-      />
+      <Breadcrumbs trail={['Templates', selectedProject.name]} current="New template" />
+
+      <div class="page-head">
+        <div>
+          <h1 class="page-title page-title-row">
+            New template
+            <span class="chip">{selectedProject.name}</span>
+          </h1>
+        </div>
+      </div>
 
       {banner && <div class="banner-error">{banner}</div>}
 
       <form onSubmit={submit}>
-        <div class="card" style={{ marginBottom: 18 }}>
-          <div class="field">
-            <label>Template key <span class="hint">(UPPER_SNAKE_CASE)</span></label>
-            <input
-              type="text"
-              class={`mono ${topErrors.template_key ? 'invalid' : ''}`}
-              value={templateKey}
-              placeholder="WELCOME_EMAIL"
-              onInput={(e) => onKeyInput((e.target as HTMLInputElement).value)}
-            />
-            {topErrors.template_key && <div class="field-error">{topErrors.template_key}</div>}
-          </div>
+        <div class="tpl-grid">
+          <div class="tpl-form">
+            <div class="card">
+              <CardHead title="Template key" required />
+              <div class="field" style={{ marginBottom: 0 }}>
+                <div class="ff">
+                  <input
+                    type="text"
+                    id="tpl-key"
+                    class={`mono ${topErrors.template_key ? 'invalid' : ''}`}
+                    value={templateKey}
+                    placeholder=" "
+                    onInput={(e) => onKeyInput((e.target as HTMLInputElement).value)}
+                  />
+                  <label for="tpl-key">Template key</label>
+                </div>
+                {topErrors.template_key && <div class="field-error">{topErrors.template_key}</div>}
+              </div>
+            </div>
 
-          <div class="field" style={{ marginBottom: 0 }}>
-            <label>Name <span class="hint">(1–120 chars)</span></label>
-            <input
-              type="text"
-              value={name}
-              placeholder="Welcome Email"
-              class={topErrors.name ? 'invalid' : ''}
-              onInput={(e) => setName((e.target as HTMLInputElement).value)}
-            />
-            {topErrors.name && <div class="field-error">{topErrors.name}</div>}
-          </div>
-        </div>
+            <div class="card">
+              <CardHead title="Name" required />
+              <div class="field" style={{ marginBottom: 0 }}>
+                <div class="ff">
+                  <input
+                    type="text"
+                    id="tpl-name"
+                    value={name}
+                    placeholder=" "
+                    class={topErrors.name ? 'invalid' : ''}
+                    onInput={(e) => setName((e.target as HTMLInputElement).value)}
+                  />
+                  <label for="tpl-name">Name</label>
+                </div>
+                {topErrors.name && <div class="field-error">{topErrors.name}</div>}
+              </div>
+            </div>
 
-        <div class="card">
-          <label style={{ marginBottom: 12 }}>Channels <span class="hint">(enable at least one)</span></label>
-          <div class="var-list" style={{ marginTop: 0, marginBottom: 16 }}>
-            {CHANNELS.map((ch) => (
-              <label
-                key={ch}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 0, fontWeight: 500 }}
-              >
-                <input
-                  type="checkbox"
-                  style={{ width: 'auto' }}
-                  checked={enabled[ch]}
-                  onChange={(e) => {
-                    const on = (e.target as HTMLInputElement).checked
-                    setEnabled((prev) => ({ ...prev, [ch]: on }))
-                    if (on) setActiveTab(ch)
-                  }}
+            <div class="card">
+              <CardHead
+                title="Channels"
+                required
+                hint="Pick every channel this template should be sendable on. Each one gets its own content."
+                help="A channel with no content can't be sent, so enable only what you'll write."
+              />
+
+              <div class="chan-cards">
+                {CHANNELS.map((ch) => (
+                  <label key={ch} class={`chan-card ${enabled[ch] ? 'on' : ''}`}>
+                    <input
+                      type="checkbox"
+                      checked={enabled[ch]}
+                      onChange={(e) => toggleChannel(ch, (e.target as HTMLInputElement).checked)}
+                    />
+                    <span class="chan-card-title">{CHANNEL_LABELS[ch]}</span>
+                  </label>
+                ))}
+              </div>
+
+              {channelsBanner && (
+                <div class="banner-error" style={{ marginTop: 14, marginBottom: 0 }}>
+                  {channelsBanner}
+                </div>
+              )}
+            </div>
+
+            <div class="card">
+              <CardHead
+                title="Content"
+                required
+                hint="Write each enabled channel. Type {{name}} anywhere you want a value filled in at send time."
+              />
+
+              <div class="tabs">
+                {CHANNELS.map((ch) => (
+                  <button
+                    key={ch}
+                    type="button"
+                    class={`tab ${activeTab === ch ? 'active' : ''}`}
+                    onClick={() => setActiveTab(ch)}
+                  >
+                    {enabled[ch] && <span class="tab-dot" />}
+                    {CHANNEL_LABELS[ch]}
+                  </button>
+                ))}
+              </div>
+
+              {enabled[activeTab] ? (
+                <ChannelFields
+                  channel={activeTab}
+                  values={content[activeTab]}
+                  errors={channelErrors[activeTab]}
+                  onChange={(patch) => patchContent(activeTab, patch)}
+                  sampleValues={sampleValues[activeTab] ?? {}}
+                  onSampleChange={setSample(activeTab)}
                 />
-                {CHANNEL_LABELS[ch]}
-              </label>
-            ))}
-          </div>
+              ) : (
+                <div class="subtle" style={{ padding: '8px 0' }}>
+                  {CHANNEL_LABELS[activeTab]} is disabled. Tick its card above to add content.
+                </div>
+              )}
+            </div>
 
-          {channelsBanner && <div class="banner-error">{channelsBanner}</div>}
-
-          <div class="tabs">
-            {CHANNELS.map((ch) => (
-              <button
-                key={ch}
-                type="button"
-                class={`tab ${activeTab === ch ? 'active' : ''}`}
-                onClick={() => setActiveTab(ch)}
-              >
-                {enabled[ch] && <span class="tab-dot" />}
-                {CHANNEL_LABELS[ch]}
+            <div class="form-actions" style={{ marginTop: 0 }}>
+              <button type="submit" class="btn btn-primary" disabled={submitting}>
+                {submitting ? 'Creating…' : 'Create template'}
               </button>
-            ))}
+              <button type="button" class="btn" onClick={() => route('/templates')} disabled={submitting}>
+                Cancel
+              </button>
+            </div>
           </div>
 
-          {enabled[activeTab] ? (
-            <ChannelFields
+          <aside class="tpl-preview">
+            <TemplatePreview
               channel={activeTab}
               values={content[activeTab]}
-              errors={channelErrors[activeTab]}
-              onChange={(patch) => patchContent(activeTab, patch)}
+              sampleValues={sampleValues[activeTab] ?? {}}
+              disabled={!enabled[activeTab]}
             />
-          ) : (
-            <div class="subtle" style={{ padding: '8px 0' }}>
-              {CHANNEL_LABELS[activeTab]} is disabled. Tick its checkbox above to add content.
-            </div>
-          )}
-        </div>
-
-        <div class="form-actions">
-          <button type="submit" class="btn btn-primary" disabled={submitting}>
-            {submitting ? 'Creating…' : 'Create template'}
-          </button>
-          <button type="button" class="btn" onClick={() => route('/templates')} disabled={submitting}>
-            Cancel
-          </button>
+          </aside>
         </div>
       </form>
     </div>

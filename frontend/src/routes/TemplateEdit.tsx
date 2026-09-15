@@ -4,7 +4,8 @@ import { useStore } from '../store'
 import { ApiError, API_BASE, getTemplate, updateChannel } from '../api'
 import type { Channel, Template } from '../types'
 import { ChannelFields, variablesFor, type ChannelValues } from '../components/ChannelFields'
-import { ApiBanner, BackLink, PageHeader } from '../components/ui'
+import { TemplatePreview } from '../components/TemplatePreview'
+import { ApiBanner, BackLink, Breadcrumbs, CardHead, PageHeader } from '../components/ui'
 import { enabledChannels, formatDate, returnTarget } from '../util'
 
 const CHANNEL_LABELS: Record<Channel, string> = { email: 'Email', sms: 'SMS', push: 'Push' }
@@ -26,6 +27,15 @@ export function TemplateEdit({ templateKey }: { path?: string; templateKey?: str
   const [saving, setSaving] = useState(false)
   const [banner, setBanner] = useState<string | null>(null)
   const [savedFlash, setSavedFlash] = useState(false)
+  // Preview-only stand-ins for the {{variables}}. Never submitted, never saved.
+  // Held per channel: each channel is sent on its own, with its own variables,
+  // so email's {{variable_1}} and the SMS's are different things.
+  const [sampleValues, setSampleValues] = useState<Partial<Record<Channel, Record<string, string>>>>(
+    {}
+  )
+
+  const setSample = (ch: Channel) => (name: string, value: string) =>
+    setSampleValues((s) => ({ ...s, [ch]: { ...(s[ch] ?? {}), [name]: value } }))
 
   useEffect(() => {
     if (!selectedProject || !templateKey) {
@@ -144,60 +154,78 @@ export function TemplateEdit({ templateKey }: { path?: string; templateKey?: str
         </div>
       ) : (
         <>
-          <PageHeader title={template.name} subtitle="Edit channel content" />
+          <Breadcrumbs trail={['Templates', selectedProject.name]} current={template.name} />
 
-          <div class="card" style={{ marginBottom: 18 }}>
-            <dl class="dl">
-              <dt>Template key</dt>
-              <dd>
-                <div class="readonly-value mono">{template.template_key}</div>
-              </dd>
-              <dt>Name</dt>
-              <dd>
-                <div class="readonly-value">{template.name}</div>
-              </dd>
-            </dl>
-            <p class="subtle" style={{ margin: '12px 0 0' }}>
-              Key and name can't be changed — no endpoint renames a template.
-              Only channel content is editable.
-            </p>
+          <div class="page-head">
+            <div>
+              <h1 class="page-title page-title-row">
+                {template.name}
+                <span class="chip">{template.template_key}</span>
+              </h1>
+              <p class="page-subtitle">Edit channel content</p>
+            </div>
           </div>
 
-          <div class="card">
-            <div class="tabs">
-              {channelKeys.map((ch) => (
-                <button
-                  key={ch}
-                  type="button"
-                  class={`tab ${activeTab === ch ? 'active' : ''}`}
-                  onClick={() => {
-                    setActiveTab(ch)
-                    setErrors({})
-                    setBanner(null)
-                    setSavedFlash(false)
-                  }}
-                >
-                  {CHANNEL_LABELS[ch]}
-                </button>
-              ))}
-            </div>
+          <div class="tpl-grid">
+            <div class="tpl-form">
+              <div class="card">
+                <CardHead
+                  title="Identity"
+                  hint="Key and name can't be changed — no endpoint renames a template. Only channel content is editable."
+                />
+                <dl class="dl">
+                  <dt>Template key</dt>
+                  <dd>
+                    <div class="readonly-value mono">{template.template_key}</div>
+                  </dd>
+                  <dt>Name</dt>
+                  <dd>
+                    <div class="readonly-value">{template.name}</div>
+                  </dd>
+                </dl>
+              </div>
 
-            {banner && <div class="banner-error">{banner}</div>}
-
-            {activeTab && template.channels[activeTab] && (
-              <>
-                <div style={{ marginBottom: 14 }}>
-                  <span class="cell-faint">Updated {formatDate(template.updated_at)}</span>
-                </div>
-
-                <ChannelFields
-                  channel={activeTab}
-                  values={content[activeTab] ?? {}}
-                  errors={errors}
-                  onChange={(p) => patch(activeTab, p)}
+              <div class="card">
+                <CardHead
+                  title="Content"
+                  required
+                  hint={`Each channel saves on its own. Last updated ${formatDate(template.updated_at)}.`}
                 />
 
-                <div class="form-actions">
+                <div class="tabs">
+                  {channelKeys.map((ch) => (
+                    <button
+                      key={ch}
+                      type="button"
+                      class={`tab ${activeTab === ch ? 'active' : ''}`}
+                      onClick={() => {
+                        setActiveTab(ch)
+                        setErrors({})
+                        setBanner(null)
+                        setSavedFlash(false)
+                      }}
+                    >
+                      {CHANNEL_LABELS[ch]}
+                    </button>
+                  ))}
+                </div>
+
+                {banner && <div class="banner-error">{banner}</div>}
+
+                {activeTab && template.channels[activeTab] && (
+                  <ChannelFields
+                    channel={activeTab}
+                    values={content[activeTab] ?? {}}
+                    errors={errors}
+                    onChange={(p) => patch(activeTab, p)}
+                    sampleValues={sampleValues[activeTab] ?? {}}
+                    onSampleChange={setSample(activeTab)}
+                  />
+                )}
+              </div>
+
+              {activeTab && template.channels[activeTab] && (
+                <div class="form-actions" style={{ marginTop: 0 }}>
                   <button
                     type="button"
                     class="btn btn-primary"
@@ -212,8 +240,18 @@ export function TemplateEdit({ templateKey }: { path?: string; templateKey?: str
                     </span>
                   )}
                 </div>
-              </>
-            )}
+              )}
+            </div>
+
+            <aside class="tpl-preview">
+              {activeTab && (
+                <TemplatePreview
+                  channel={activeTab}
+                  values={content[activeTab] ?? {}}
+                  sampleValues={sampleValues[activeTab] ?? {}}
+                />
+              )}
+            </aside>
           </div>
         </>
       )}

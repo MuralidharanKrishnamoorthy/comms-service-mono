@@ -1,4 +1,5 @@
-import { renderTemplate, wrapEmailHtml } from './template.js'
+import { htmlToPlainText, renderTemplate, wrapEmailHtml } from './template.js'
+import { applyDeferredStyles } from './unicodeStyle.js'
 import { resendEmailProvider } from '../providers/resend.js'
 import { stubSmsProvider, stubPushProvider } from '../providers/stub.js'
 import type { ChannelContent } from '../models/template.js'
@@ -18,14 +19,21 @@ export async function dispatchSend(
     return result.providerMessageId
   }
 
+  // SMS and push carry no markup. Emphasis becomes Unicode styled characters
+  // and everything else is flattened; the deferred pass then styles the values
+  // that landed where styled {{tokens}} were, so it must run after rendering.
+  const toPlain = (source: string) =>
+    applyDeferredStyles(renderTemplate(htmlToPlainText(source, { styleWithUnicode: true }), data))
+
   if (channel === 'sms') {
-    const body = renderTemplate(content.body ?? '', data)
-    const result = await stubSmsProvider.send({ to: recipient, body })
+    const result = await stubSmsProvider.send({ to: recipient, body: toPlain(content.body ?? '') })
     return result.providerMessageId
   }
 
-  const title = content.title ? renderTemplate(content.title, data) : undefined
-  const body = renderTemplate(content.body ?? '', data)
-  const result = await stubPushProvider.send({ to: recipient, title, body })
+  const result = await stubPushProvider.send({
+    to: recipient,
+    title: content.title ? toPlain(content.title) : undefined,
+    body: toPlain(content.body ?? ''),
+  })
   return result.providerMessageId
 }

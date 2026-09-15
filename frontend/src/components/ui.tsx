@@ -456,3 +456,54 @@ export function PageHeader({
     </div>
   )
 }
+
+// ---------- Breadcrumb trail ----------
+export function Breadcrumbs({ trail, current }: { trail: string[]; current: string }) {
+  return (
+    <div class="crumbs">
+      {trail.map((step) => (
+        <span key={step} class="crumb">
+          {step}
+          <span class="crumb-sep">/</span>
+        </span>
+      ))}
+      <span class="crumb-current">{current}</span>
+    </div>
+  )
+}
+
+// ---------- Card heading ----------
+// Title, one line of guidance, and an optional hover-help mark — the repeating
+// top of every card on the template editor.
+export function CardHead({
+  title,
+  required,
+  hint,
+  help,
+}: {
+  title: string
+  required?: boolean
+  hint?: ComponentChildren
+  help?: string
+}) {
+  return (
+    <div class="card-head">
+      <div>
+        <div class="card-title">
+          {title}
+          {required && <span class="card-req">*</span>}
+        </div>
+        {hint && <p class="card-help">{hint}</p>}
+      </div>
+      {help && (
+        <span class="card-help-icon" title={help} aria-label={help}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3" />
+            <path d="M12 17h.01" />
+          </svg>
+        </span>
+      )}
+    </div>
+  )
+}

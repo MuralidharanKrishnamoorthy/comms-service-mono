@@ -8,6 +8,14 @@ import Highlight from '@tiptap/extension-highlight'
 import Placeholder from '@tiptap/extension-placeholder'
 import Image from '@tiptap/extension-image'
 import { ApiError, uploadImage } from '../api'
+import {
+  BulletListIcon,
+  ColorPicker,
+  EmojiButton,
+  MarkerIcon,
+  OrderedListIcon,
+  PaperclipIcon,
+} from './editorIcons'
 
 const SizedImage = Image.extend({
   addAttributes() {
@@ -52,14 +60,19 @@ interface RichTextEditorProps {
   value: string
   onChange: (html: string) => void
   placeholder?: string
+  /** The token "+ Add variable" inserts, e.g. "{{3}}". */
+  variableToken: string
 }
 
-export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorProps) {
+export function RichTextEditor({ value, onChange, placeholder, variableToken }: RichTextEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const editorRef = useRef<Editor | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
+  const [count, setCount] = useState(0)
+  const [textColor, setTextColor] = useState<string | null>(null)
+  const [highlightColor, setHighlightColor] = useState<string | null>(null)
 
   useEffect(() => {
     if (!containerRef.current) return
@@ -78,10 +91,12 @@ export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorP
       content: value,
       onUpdate: ({ editor }) => {
         onChange(editor.getHTML())
+        setCount(editor.getText().length)
       },
     })
 
     editorRef.current = editor
+    setCount(editor.getText().length)
     return () => editor.destroy()
   }, [])
 
@@ -90,6 +105,9 @@ export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorP
     if (!editor) return
     fn(editor)
   }
+
+  const insertVariable = () =>
+    run((editor) => editor.chain().focus().insertContent(variableToken).run())
 
   const pickImage = () => fileInputRef.current?.click()
 
@@ -113,7 +131,21 @@ export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorP
 
   return (
     <div class="rte">
+      {uploadError && <div class="field-error" style={{ padding: '6px 14px 0' }}>{uploadError}</div>}
+
+      <div ref={containerRef} class="rte-content" />
+
       <div class="rte-toolbar">
+        <button type="button" class="btn btn-sm rte-var-btn" onClick={insertVariable}>
+          + Add variable
+        </button>
+
+        <span class="rte-sep" />
+
+        <EmojiButton
+          onPick={(emoji) => run((editor) => editor.chain().focus().insertContent(emoji).run())}
+        />
+
         <button type="button" class="rte-btn" onClick={() => run((e) => e.chain().focus().toggleBold().run())}>
           <b>B</b>
         </button>
@@ -126,34 +158,49 @@ export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorP
 
         <span class="rte-sep" />
 
-        <label class="rte-color-picker" title="Text color">
-          A
-          <input
-            type="color"
-            onInput={(e) => run((editor) => editor.chain().focus().setColor((e.target as HTMLInputElement).value).run())}
-          />
-        </label>
+        <ColorPicker
+          title="Text colour"
+          glyph="A"
+          color={textColor}
+          onPick={(value) => {
+            setTextColor(value)
+            run((editor) => editor.chain().focus().setColor(value).run())
+          }}
+        />
 
-        <label class="rte-color-picker rte-color-picker-hl" title="Highlight color">
-          ⬛
-          <input
-            type="color"
-            onInput={(e) =>
-              run((editor) => editor.chain().focus().toggleHighlight({ color: (e.target as HTMLInputElement).value }).run())
-            }
-          />
-        </label>
+        <ColorPicker
+          title="Highlight colour"
+          glyph={<MarkerIcon />}
+          color={highlightColor}
+          onPick={(value) => {
+            setHighlightColor(value)
+            run((editor) => editor.chain().focus().toggleHighlight({ color: value }).run())
+          }}
+        />
+
+        <span class="rte-sep" />
+
+        <button
+          type="button"
+          class="rte-btn"
+          title="Bulleted list"
+          onClick={() => run((e) => e.chain().focus().toggleBulletList().run())}
+        >
+          <BulletListIcon />
+        </button>
+        <button
+          type="button"
+          class="rte-btn"
+          title="Numbered list"
+          onClick={() => run((e) => e.chain().focus().toggleOrderedList().run())}
+        >
+          <OrderedListIcon />
+        </button>
 
         <span class="rte-sep" />
 
         <button type="button" class="rte-btn" title="Attach image" disabled={uploading} onClick={pickImage}>
-          {uploading ? (
-            '…'
-          ) : (
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21.44 11.05l-9.19 9.19a5 5 0 0 1-7.07-7.07l9.19-9.19a3 3 0 0 1 4.24 4.24l-9.19 9.19a1 1 0 0 1-1.41-1.41l8.48-8.48" />
-            </svg>
-          )}
+          {uploading ? '…' : <PaperclipIcon />}
         </button>
         <input
           ref={fileInputRef}
@@ -162,11 +209,9 @@ export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorP
           style={{ display: 'none' }}
           onChange={onFileChosen}
         />
+
+        <span class="rte-count">Character count = {count}</span>
       </div>
-
-      {uploadError && <div class="field-error" style={{ padding: '6px 14px 0' }}>{uploadError}</div>}
-
-      <div ref={containerRef} class="rte-content" />
     </div>
   )
 }

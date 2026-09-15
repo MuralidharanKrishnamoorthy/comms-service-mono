@@ -340,36 +340,6 @@
   background: var(--success);
 }
 
-.char-counter {
-  font-size: 0.8571rem;
-  color: var(--ink-faint);
-  margin-top: 5px;
-}
-.char-counter.over {
-  color: var(--danger);
-  font-weight: 600;
-}
-
-.var-list {
-  display: flex;
-  gap: 5px;
-  flex-wrap: wrap;
-  margin-top: 8px;
-  align-items: center;
-}
-
-.var-list .label-inline {
-  font-size: 0.8571rem;
-  color: var(--ink-faint);
-}
-
-.preview-box {
-  border: 1px solid var(--border);
-  border-radius: var(--r-sm);
-  overflow: hidden;
-  margin-top: 8px;
-}
-
 .preview-subject {
   background: var(--surface-alt);
   padding: 9px 12px;
@@ -389,13 +359,6 @@
   max-width: 100%;
   height: auto;
   border-radius: 6px;
-}
-
-.preview-plain {
-  padding: 14px;
-  background: #fff;
-  white-space: pre-wrap;
-  font-size: 1rem;
 }
 
 .version-badge {
@@ -1010,4 +973,378 @@
   .form-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* ---------- Template editor: two-column authoring ---------- */
+
+/* Form on the left, preview on the right. The preview is sticky so it stays
+   in view while the form scrolls — the whole point of the split. */
+.tpl-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.tpl-form {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.tpl-preview {
+  position: sticky;
+  top: 72px; /* clears the 56px sticky topbar */
+  min-width: 0;
+}
+
+/* Below this the two columns are both too narrow to be useful. */
+@media (max-width: 1080px) {
+  .tpl-grid {
+    grid-template-columns: 1fr;
+  }
+  .tpl-preview {
+    position: static;
+  }
+}
+
+/* ---------- Card headings ---------- */
+.card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.card-title {
+  font-size: 1.0714rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.card-req {
+  color: var(--danger);
+  font-weight: 500;
+}
+
+.card-help {
+  color: var(--ink-faint);
+  font-size: 0.8571rem;
+  margin: 4px 0 0;
+  line-height: 1.5;
+}
+
+.card-help-icon {
+  color: var(--ink-faint);
+  flex-shrink: 0;
+  cursor: help;
+  line-height: 0;
+}
+.card-help-icon svg {
+  width: 17px;
+  height: 17px;
+}
+
+/* ---------- Breadcrumbs ---------- */
+.crumbs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  font-size: 0.8571rem;
+  color: var(--ink-faint);
+  margin-bottom: 10px;
+}
+
+.crumb {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.crumb-sep {
+  color: var(--border-strong);
+}
+
+.crumb-current {
+  color: var(--ink-muted);
+  font-weight: 500;
+}
+
+.page-title-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* ---------- Channel picker cards ---------- */
+.chan-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.chan-card {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 0;
+  padding: 9px 15px 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  cursor: pointer;
+  font-weight: 400;
+  transition: border-color 0.12s, background 0.12s;
+}
+
+.chan-card:hover {
+  border-color: var(--border-strong);
+}
+
+.chan-card.on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.chan-card input {
+  width: auto;
+  flex-shrink: 0;
+}
+
+.chan-card-title {
+  font-weight: 600;
+}
+
+/* ---------- Sample values ---------- */
+.sample-block {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.sample-head {
+  font-weight: 600;
+  font-size: 0.9286rem;
+}
+
+.sample-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+/* One joined control: the fixed token on the left, the value on the right. */
+.sample-row {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.sample-row:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.sample-key {
+  flex: 0 0 150px;
+  display: flex;
+  align-items: center;
+  padding: 8px 11px;
+  background: var(--surface-alt);
+  border-right: 1px solid var(--border);
+  color: var(--ink-muted);
+  font-size: 0.8571rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sample-row input[type='text'] {
+  border: none;
+  border-radius: 0;
+  flex: 1;
+  min-width: 0;
+  font-weight: 500;
+}
+
+.sample-row input[type='text']:focus {
+  box-shadow: none;
+}
+
+/* ---------- Variables in the preview ---------- */
+/* A filled value is shown exactly as it will be delivered — ordinary text, no
+   accent. Colour here would suggest the recipient sees colour, which on SMS
+   and push they never do; the colour picker in the toolbar is how an author
+   asks for one. */
+.var-filled {
+  color: inherit;
+}
+
+/* ---------- Variable swatches (sample rows only) ---------- */
+/* Six distinct hues so the rows can be told apart while authoring. Not the
+   category palette, which is all browns and left every variable looking the
+   same sand colour. Amber stays first to agree with the theme. */
+.var-swatch-0 { color: #a8650d; } /* amber   */
+.var-swatch-1 { color: #1a6e8e; } /* teal    */
+.var-swatch-2 { color: #7b3fa0; } /* purple  */
+.var-swatch-3 { color: #1e7a50; } /* green   */
+.var-swatch-4 { color: #a8327d; } /* magenta */
+.var-swatch-5 { color: #2f5fb3; } /* blue    */
+
+/* A variable with no sample value yet — still shows its {{token}}. */
+.var-unset {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 0.92em;
+  opacity: 0.75;
+}
+
+/* ---------- Preview column ---------- */
+.preview-panel {
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.preview-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-alt);
+  font-size: 0.7857rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-faint);
+}
+
+/* Warm stage behind a chat bubble, for the two message channels. */
+.preview-stage {
+  padding: 18px 16px;
+  background-color: #e6e1d7;
+  background-image: radial-gradient(rgba(21, 24, 31, 0.055) 1px, transparent 1px);
+  background-size: 14px 14px;
+  min-height: 150px;
+}
+
+.bubble {
+  background: #fff;
+  border-radius: var(--r-sm);
+  padding: 10px 12px 6px;
+  box-shadow: 0 1px 2px rgba(20, 20, 15, 0.14);
+  max-width: 92%;
+}
+
+.bubble-title {
+  font-weight: 600;
+  margin-bottom: 3px;
+}
+
+.bubble-body {
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.5;
+}
+
+.bubble-time {
+  text-align: right;
+  font-size: 0.7857rem;
+  color: var(--ink-faint);
+  margin-top: 4px;
+}
+
+.preview-empty {
+  color: var(--ink-faint);
+  font-style: italic;
+}
+
+/* ---------- Floating labels ---------- */
+/* Label sits on the border line and lifts out of the field. The <label> comes
+   after the input in the DOM so :placeholder-shown can drive it; the input
+   carries placeholder=" " so "empty" is detectable. */
+.ff {
+  position: relative;
+  display: block;
+}
+
+.ff > label {
+  position: absolute;
+  left: 7px; /* + 4px inner padding lines the label up with the input's text */
+  top: 50%;
+  transform: translateY(-50%);
+  margin: 0;
+  padding: 0 4px;
+  background: var(--surface);
+  color: var(--ink-faint);
+  font-weight: 400;
+  pointer-events: none;
+  transition: top 0.12s, font-size 0.12s, color 0.12s;
+}
+
+.ff > input:focus + label,
+.ff > input:not(:placeholder-shown) + label {
+  top: 0;
+  font-size: 0.7857rem;
+  font-weight: 500;
+  color: var(--ink-muted);
+}
+
+.ff > input:focus + label {
+  color: var(--accent-ink);
+}
+
+.ff > input.invalid + label {
+  color: var(--danger);
+}
+
+/* ---------- Editor toolbar additions ---------- */
+/* Pushes the character count to the far end of the toolbar row. */
+.rte-count {
+  margin-left: auto;
+  padding-left: 10px;
+  font-size: 0.8571rem;
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+
+.rte-var-btn {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* Subject line with its own "+ Add variable" alongside. */
+.subject-row {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.subject-row .ff {
+  flex: 1;
+  min-width: 0;
+}
+
+.subject-row .btn {
+  flex-shrink: 0;
+}
+
+/* Preview for a channel that is switched off — nothing to render. */
+.preview-off {
+  padding: 28px 18px;
+  text-align: center;
+  color: var(--ink-faint);
+  font-size: 0.9286rem;
 }
