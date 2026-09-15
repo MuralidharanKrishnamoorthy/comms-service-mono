@@ -51,6 +51,20 @@ export const updateChannelContentSchema = channelContentSchema.partial().refine(
   { message: 'At least one field must be provided to update' }
 )
 
+// The approval lifecycle. A template is born "pending", an admin moves it to
+// "approved" or "rejected", and any edit by the creator sends it back to
+// "pending" (see resetReviewForEdit in lib/templateReview).
+export const TEMPLATE_STATUSES = ['pending', 'approved', 'rejected'] as const
+export type TemplateStatus = (typeof TEMPLATE_STATUSES)[number]
+
+// Admins filter the review queue by status; "all" means no filter.
+export const TEMPLATE_STATUS_FILTERS = ['pending', 'approved', 'rejected', 'all'] as const
+export type TemplateStatusFilter = (typeof TEMPLATE_STATUS_FILTERS)[number]
+
+export const rejectTemplateSchema = z.object({
+  reason: z.string().max(2000).optional(),
+})
+
 export interface ChannelContent {
   subject?: string
   html_body?: string
@@ -71,6 +85,18 @@ export interface Template {
     sms?: ChannelContent
     push?: ChannelContent
   }
+
+  // Approval workflow. `status` gates whether the template may actually be used
+  // (only "approved" templates can be sent — see routes/send.ts). The review
+  // fields form an audit trail: who reviewed it, when, and — for a rejection —
+  // why. `created_by` is the dashboard user who submitted it; nullable only on
+  // rows created before this field existed (backfilled by migrateTemplateStatus).
+  status: TemplateStatus
+  created_by: ObjectId | null
+  reviewed_by: ObjectId | null
+  reviewed_at: Date | null
+  rejection_reason: string | null
+
   created_at: Date
   updated_at: Date
 }

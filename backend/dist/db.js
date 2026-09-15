@@ -16,11 +16,29 @@ async function ensureIndexes(database) {
     catch {
     }
     await database.collection('templates').createIndex({ project_id: 1, template_key: 1 }, { unique: true });
+    // Serves the admin review queue (find by status) and each creator's
+    // "my templates" list (find by created_by within a project).
+    await database.collection('templates').createIndex({ status: 1, created_at: 1 });
+    await database.collection('templates').createIndex({ project_id: 1, created_by: 1 });
     await database.collection('message_logs').createIndex({ project_id: 1, created_at: -1 });
     await database.collection('message_logs').createIndex({ status: 1, next_retry_at: 1 });
     await database.collection('message_logs').createIndex({ provider_message_id: 1 });
-    await database.collection('categories').createIndex({ name: 1 }, { unique: true });
+    // Category names used to be unique across the whole database, which let one
+    // team's name block another team that could not even see it. Names are now
+    // unique per project instead.
+    try {
+        await database.collection('categories').dropIndex('name_1');
+    }
+    catch {
+    }
     await database.collection('categories').createIndex({ 'templates.template_id': 1 });
+    // One entry per (project, name) pair the category touches. Multikey on
+    // templates.project_id only, so it is a legal compound index, and its
+    // leading field also serves the visibility filter — no separate index for
+    // that. A category spanning two projects reserves its name in both.
+    await database
+        .collection('categories')
+        .createIndex({ 'templates.project_id': 1, name: 1 }, { unique: true });
     await database.collection('users').createIndex({ email: 1 }, { unique: true });
     await database.collection('users').createIndex({ project_ids: 1 });
     await database.collection('api_keys').createIndex({ project_id: 1 });
