@@ -7,11 +7,6 @@ import {
   type ProductDoc,
 } from './db.js'
 
-/**
- * The storefront's own domain: catalogue, orders, payments. Everything here is
- * ordinary application code that would exist whether or not Notifyr did.
- */
-
 export const STORE_NAME = process.env.STORE_NAME ?? 'Acme Storefront'
 const CURRENCY = 'USD'
 const TAX_RATE = 0.08
@@ -24,20 +19,18 @@ export class StoreError extends Error {
   }
 }
 
+interface CartLine {
+  sku: string
+  qty: number
+}
+
+const money = (value: number) => Number(value.toFixed(2))
+
 export function listProducts(): Promise<ProductDoc[]> {
   return getStoreDb()
     .collection<ProductDoc>('products')
     .find({ active: true }, { projection: { _id: 0 } })
     .sort({ name: 1 })
-    .toArray()
-}
-
-export function listOrders(limit = 12): Promise<OrderDoc[]> {
-  return getStoreDb()
-    .collection<OrderDoc>('orders')
-    .find({}, { projection: { _id: 0 } })
-    .sort({ created_at: -1 })
-    .limit(limit)
     .toArray()
 }
 
@@ -47,19 +40,10 @@ export function findOrder(orderNo: string): Promise<OrderDoc | null> {
     .findOne({ order_no: orderNo }, { projection: { _id: 0 } })
 }
 
-export interface CartLine {
-  sku: string
-  qty: number
-}
-
-function money(value: number): number {
-  return Number(value.toFixed(2))
-}
-
 /**
- * Creates an order in `pending_payment`. Prices are read from the catalogue
- * here and frozen onto the order, never taken from the request — a client that
- * posts its own prices is a client that decides what it pays.
+ * Creates an order in `pending_payment`. Prices come from the catalogue and are
+ * frozen onto the order — a client that posts its own prices is a client that
+ * decides what it pays.
  */
 export async function createOrder(input: {
   full_name: string
@@ -123,10 +107,9 @@ export async function recordPayment(payment: Omit<PaymentDoc, '_id'>): Promise<v
 }
 
 /**
- * Moves an order to `paid` and stamps it with an invoice number — but only if
- * it is still `pending_payment`. Two payment callbacks racing for the same
- * order means exactly one of them matches, so exactly one invoice number is
- * issued and exactly one email can follow.
+ * Marks an order paid and stamps it with an invoice number, but only while it
+ * is still `pending_payment`. Two payment callbacks racing for one order means
+ * exactly one matches, so exactly one invoice — and one email — can follow.
  */
 export async function markPaid(orderNo: string, gatewayRef: string): Promise<OrderDoc | null> {
   const invoiceNumber = `INV-${new Date().getFullYear()}-${String(
@@ -162,33 +145,49 @@ export async function markPaymentFailed(orderNo: string): Promise<void> {
 
 export async function recordNotification(
   orderNo: string,
-  outcome: OrderDoc['notification']
+  notification: OrderDoc['notification']
 ): Promise<void> {
   await getStoreDb()
     .collection<OrderDoc>('orders')
-    .updateOne({ order_no: orderNo }, { $set: { notification: outcome, updated_at: new Date() } })
+    .updateOne({ order_no: orderNo }, { $set: { notification, updated_at: new Date() } })
 }
 
 /**
- * The step every consuming app performs for itself: reduce a rich internal
- * record down to the flat primitives the template declares. Notifyr never sees
- * the order document — only already-formatted strings. Currency symbols,
- * rounding and date formatting are decisions this app makes, not the service.
+ * Flattens an order into the primitives a template declares. Notifyr only fails
+ * a send for a *missing* required variable and ignores the rest, so every value
+ * is offered under the names people reach for — whichever subset your template
+ * uses, it works. Something missing? The send returns 422 naming it; add a line.
  */
-export function invoiceVariables(order: OrderDoc) {
-  const itemsSummary = order.lines.map((l) => `${l.qty}x ${l.name}`).join(', ')
+export function orderVariables(order: OrderDoc) {
   const amount = (value: number) => `${value.toFixed(2)} ${order.currency}`
+  const paidOn = order.invoice?.issued_at ?? new Date()
 
   return {
     customer_name: order.customer.full_name,
-    invoice_no: order.invoice?.number ?? '',
+    customer_email: order.customer.email,
+    user_name: order.customer.full_name,
+
     order_no: order.order_no,
-    items_summary: itemsSummary,
+    order_id: order.order_no,
+    invoice_no: order.invoice?.number ?? '',
+    invoice_number: order.invoice?.number ?? '',
+    items_summary: order.lines.map((l) => `${l.qty}x ${l.name}`).join(', '),
+    item_count: order.lines.reduce((n, l) => n + l.qty, 0),
+
     subtotal: amount(order.subtotal),
     tax: amount(order.tax),
     amount_paid: amount(order.total),
+    total: amount(order.total),
+    amount: amount(order.total),
+    currency: order.currency,
+
     payment_ref: order.payment_ref ?? '',
-    paid_on: (order.invoice?.issued_at ?? new Date()).toUTCString(),
+    payment_id: order.payment_ref ?? '',
+    paid_on: paidOn.toUTCString(),
+    paid_date: paidOn.toDateString(),
+
     store_name: STORE_NAME,
+    company_name: STORE_NAME,
+    brand: STORE_NAME,
   }
 }

@@ -13,7 +13,7 @@ import { randomUUID } from 'node:crypto'
 
 export type PaymentMethod = 'card' | 'upi' | 'netbanking'
 
-export interface ChargeInput {
+interface ChargeInput {
   amount: number
   currency: string
   method: PaymentMethod
@@ -21,7 +21,7 @@ export interface ChargeInput {
   card_number?: string
 }
 
-export interface ChargeResult {
+interface ChargeResult {
   status: 'success' | 'failed'
   gateway_ref: string
   failure_reason: string | null

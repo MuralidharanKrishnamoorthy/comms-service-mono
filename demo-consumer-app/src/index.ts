@@ -9,33 +9,28 @@ import {
   StoreError,
   createOrder,
   findOrder,
-  invoiceVariables,
-  listOrders,
   listProducts,
   markPaid,
   markPaymentFailed,
+  orderVariables,
   recordNotification,
   recordPayment,
 } from './store.js'
 
 /**
  * A storefront that owns no notification code: no provider SDK, no email
- * template, no retry loop, no delivery tracking. It has its own database and
- * its own payment flow, and when a payment settles it makes one HTTP call.
+ * template, no retry loop, no delivery tracking. When a payment settles it
+ * makes one HTTP call.
  */
+
+/** Point this at your own template in .env; orderVariables() supplies the values. */
+const TEMPLATE_KEY = (process.env.NOTIFYR_TEMPLATE_KEY ?? 'INVOICE_PAID').trim().toUpperCase()
 
 const app = new Hono()
 
 app.get('/', (c) => c.html(page()))
 app.get('/api/config', (c) => c.json({ store_name: STORE_NAME, ...config() }))
 app.get('/api/products', async (c) => c.json(await listProducts()))
-app.get('/api/orders', async (c) => c.json(await listOrders()))
-
-app.get('/api/orders/:orderNo', async (c) => {
-  const order = await findOrder(c.req.param('orderNo'))
-  if (!order) return c.json({ error: 'No such order' }, 404)
-  return c.json(order)
-})
 
 app.post('/api/checkout', async (c) => {
   const body = await c.req.json().catch(() => null)
@@ -49,12 +44,9 @@ app.post('/api/checkout', async (c) => {
 })
 
 /**
- * Pay for an order, then invoice it.
- *
- * The ordering is the whole point: the payment is written and the order is
- * moved to `paid` before anything is sent. Mailing an invoice for a payment
- * that had not yet been committed would be a receipt for money the store might
- * not have.
+ * Pay, then invoice. The payment is written and the order moved to `paid`
+ * before anything is sent — mailing a receipt for money the store might not
+ * have would be worse than mailing late.
  */
 app.post('/api/orders/:orderNo/pay', async (c) => {
   const orderNo = c.req.param('orderNo')
@@ -64,11 +56,8 @@ app.post('/api/orders/:orderNo/pay', async (c) => {
 
   const order = await findOrder(orderNo)
   if (!order) return c.json({ error: 'No such order' }, 404)
-  if (order.status === 'paid') {
-    return c.json({ error: `${orderNo} is already paid`, order }, 409)
-  }
-  if (order.status === 'payment_failed') {
-    return c.json({ error: `${orderNo} previously failed — start a new order`, order }, 409)
+  if (order.status !== 'pending_payment') {
+    return c.json({ error: `${orderNo} is already ${order.status.replace('_', ' ')}`, order }, 409)
   }
 
   const result = await charge({
@@ -91,52 +80,45 @@ app.post('/api/orders/:orderNo/pay', async (c) => {
 
   if (result.status === 'failed') {
     await markPaymentFailed(order.order_no)
-    return c.json(
-      { paid: false, payment: result, order: await findOrder(order.order_no) },
-      402
-    )
+    return c.json({ paid: false, payment: result, order: await findOrder(order.order_no) }, 402)
   }
 
-  // Only a transition from pending_payment to paid returns a document. Two
-  // callbacks racing for one order means one of them gets null here, which is
-  // what stops a customer receiving two invoices for one payment.
+  // Only a transition out of pending_payment returns a document, so two
+  // callbacks racing for one order can never produce two invoices.
   const paid = await markPaid(order.order_no, result.gateway_ref)
   if (!paid) {
     return c.json({ error: `${orderNo} was already settled`, order: await findOrder(orderNo) }, 409)
   }
 
   const notifyr = await sendNotification({
-    template_key: 'INVOICE_PAID',
+    template_key: TEMPLATE_KEY,
     channel: 'email',
     recipient: paid.customer.email,
-    data: invoiceVariables(paid),
+    data: orderVariables(paid),
   })
 
-  const outcome: OrderDoc['notification'] = notifyr.ok
-    ? {
-        status: 'sent',
-        message_log_id: String((notifyr.body as { message_log_id?: string })?.message_log_id ?? ''),
-        error: null,
-        at: new Date(),
-      }
-    : {
-        status: 'failed',
-        message_log_id: null,
-        error: String((notifyr.body as { error?: string })?.error ?? `HTTP ${notifyr.status}`),
-        at: new Date(),
-      }
-
-  await recordNotification(paid.order_no, outcome)
+  const notification: OrderDoc['notification'] = {
+    status: notifyr.ok ? 'sent' : 'failed',
+    message_log_id: notifyr.ok
+      ? String((notifyr.body as { message_log_id?: string })?.message_log_id ?? '')
+      : null,
+    error: notifyr.ok
+      ? null
+      : String((notifyr.body as { error?: string })?.error ?? `HTTP ${notifyr.status}`),
+    at: new Date(),
+  }
+  await recordNotification(paid.order_no, notification)
   console.log(
-    `[notifyr] INVOICE_PAID for ${paid.order_no} — ${notifyr.ok ? 'accepted' : `refused (${notifyr.status || 'unreachable'})`}`
+    `[notifyr] ${TEMPLATE_KEY} for ${paid.order_no} — ` +
+      (notifyr.ok ? 'accepted' : `refused (${notifyr.status || 'unreachable'})`)
   )
 
-  // The payment stands whether or not the invoice email went out. Failing the
-  // request now would tell the customer their payment failed, which is false.
+  // The payment stands whether or not the email went out. Failing now would
+  // tell the customer their payment failed, which is false.
   return c.json({
     paid: true,
     payment: result,
-    order: { ...paid, notification: outcome },
+    order: { ...paid, notification },
     notifyr: { status: notifyr.status, ok: notifyr.ok },
   })
 })
@@ -155,9 +137,9 @@ async function main() {
   serve({ fetch: app.fetch, port: PORT }, (info) => {
     const cfg = config()
     console.log(`${STORE_NAME} running on http://localhost:${info.port}`)
-    console.log(`  Notifyr: ${cfg.baseUrl}  key: ${cfg.keyPrefix}`)
+    console.log(`  Notifyr: ${cfg.baseUrl}  key: ${cfg.keyPrefix}  template: ${TEMPLATE_KEY}`)
     if (!cfg.configured) {
-      console.warn('  No credentials yet — set COMMS_BASE_URL and COMMS_API_KEY in .env')
+      console.warn('  No credentials — set COMMS_BASE_URL and COMMS_API_KEY in .env')
     }
   })
 }

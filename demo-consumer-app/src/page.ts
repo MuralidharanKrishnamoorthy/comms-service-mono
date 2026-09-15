@@ -2,13 +2,16 @@ import { STORE_NAME } from './store.js'
 import { config } from './notifyr.js'
 
 /**
- * The whole storefront UI, served as one document. No build step, no framework
- * — this app exists to show what a *consumer* of Notifyr looks like, and a
- * bundler would only get in the way of reading it.
- *
- * Product art is inline SVG rather than image files: no binaries in the repo,
- * no broken images offline, and the catalogue stays a database concern.
+ * The whole storefront UI, served as one document — no build step, no
+ * framework. Product art is inline SVG, so there are no binaries in the repo.
  */
+
+/** Checkout prefill. Blank unless .env sets it — nobody's address in source. */
+const PREFILL = {
+  name: process.env.DEMO_CUSTOMER_NAME ?? '',
+  email: process.env.DEMO_CUSTOMER_EMAIL ?? '',
+}
+
 export function page(): string {
   const cfg = config()
   const banner = cfg.configured
@@ -102,8 +105,6 @@ export function page(): string {
     display:flex; align-items:center; justify-content:center; gap:9px; }
   .btn-primary:hover:not(:disabled) { background:#b3771b; border-color:#b3771b; }
   .btn-ghost { font-size:12.5px; padding:5px 10px; }
-  .btn-link { background:none; border:none; color:var(--accent-ink); padding:0;
-    font-size:12.5px; text-decoration:underline; }
 
   /* ---- panel ---- */
   .panel { background:var(--surface); border:1px solid var(--border); border-radius:12px;
@@ -256,6 +257,7 @@ export function page(): string {
 <div id="toasts"></div>
 
 <script>
+var PREFILL = ${JSON.stringify(PREFILL)};
 var CATALOGUE = [];
 var cart = {};
 var busy = false;
@@ -399,10 +401,10 @@ function renderPanel() {
     '</div>' +
     '<div class="panel-body">' +
       '<label for="nm">Full name</label>' +
-      '<input id="nm" value="Arjun Ramesh" autocomplete="name" />' +
+      '<input id="nm" value="' + esc(PREFILL.name) + '" placeholder="Your name" autocomplete="name" />' +
       '<div class="field-err" id="errNm">Enter a name</div>' +
       '<label for="em">Email &mdash; the invoice is sent here</label>' +
-      '<input id="em" value="muralidharansrec@gmail.com" autocomplete="email" />' +
+      '<input id="em" value="' + esc(PREFILL.email) + '" placeholder="you@example.com" autocomplete="email" />' +
       '<div class="field-err" id="errEm">Enter a valid email address</div>' +
     '</div>' +
     '<div class="panel-body">' +
