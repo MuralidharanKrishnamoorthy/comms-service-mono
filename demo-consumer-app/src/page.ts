@@ -59,6 +59,11 @@ export function page(): string {
   .cartbtn:hover { background:#252932; }
   .cartbtn .count { background:var(--accent); color:#fff; font-size:11px; font-weight:700;
     min-width:19px; height:19px; border-radius:999px; display:grid; place-items:center; padding:0 5px; }
+  .navtabs { display:flex; gap:3px; background:#1e2128; padding:3px; border-radius:9px; }
+  .navtab { border:none; background:none; color:#9aa0a8; font-size:13px; font-weight:600;
+    padding:6px 14px; border-radius:7px; }
+  .navtab.on { background:#2e323b; color:#fff; }
+  .invite-wrap { max-width:520px; }
 
   /* ---- layout ---- */
   main { max-width:1240px; margin:0 auto; padding:26px 26px 70px; }
@@ -218,6 +223,10 @@ export function page(): string {
       </div>
     </div>
     <div class="topbar-right">
+      <div class="navtabs">
+        <button class="navtab on" data-view="shop">Shop</button>
+        <button class="navtab" data-view="invite">Invite</button>
+      </div>
       <div class="env">${cfg.baseUrl} · ${cfg.keyPrefix}</div>
       <button class="cartbtn" id="cartBtn">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.7 13.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6"/></svg>
@@ -229,7 +238,42 @@ export function page(): string {
 
 <main>
   ${banner}
-  <div class="cols">
+
+  <div id="inviteView" style="display:none">
+    <div class="section-head">
+      <h2>Invite a user</h2>
+      <span>a second event, a second template</span>
+    </div>
+    <div class="invite-wrap">
+      <div class="panel" style="position:static">
+        <div class="panel-body">
+          <p class="hint" style="margin-top:0">
+            No order, no payment — just an event that sends its own template
+            through the same API key.
+          </p>
+          <label for="invName">Name</label>
+          <input id="invName" placeholder="Priya D'Souza" />
+          <div class="field-err" id="errInvName">Enter a name</div>
+
+          <label for="invEmail">Email</label>
+          <input id="invEmail" placeholder="you@example.com" />
+          <div class="field-err" id="errInvEmail">Enter a valid email address</div>
+
+          <label for="invRole">Role</label>
+          <select id="invRole">
+            <option>Member</option>
+            <option>Admin</option>
+            <option>Viewer</option>
+          </select>
+
+          <button class="btn-primary" id="sendInvite" style="margin-top:18px">Send invitation</button>
+          <div id="inviteResult"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="shopView" class="cols">
     <div>
       <div class="section-head">
         <h2>Shop</h2>
@@ -605,7 +649,8 @@ function renderResult() {
         '<div class="mailed ' + (mailed ? 'ok' : 'bad') + '">' +
           '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 6 10-6"/></svg>' +
           '<span>' + (mailed
-            ? 'Invoice emailed to <b>' + esc(o.customer.email) + '</b> through Notifyr.'
+            ? 'Template <b>' + esc(o.notification.template_key) + '</b> sent to <b>' +
+              esc(o.customer.email) + '</b> through Notifyr.'
             : 'Payment succeeded, but the invoice email failed: ' +
               esc((o.notification && o.notification.error) || 'unknown') +
               '. The payment stands — the email can be resent.') + '</span>' +
@@ -625,6 +670,56 @@ el('cartBtn').onclick = function () {
   view = 'cart';
   renderPanel();
   el('panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+};
+
+/* ---------- invite ---------- */
+
+Array.prototype.forEach.call(document.querySelectorAll('.navtab'), function (b) {
+  b.onclick = function () {
+    var view = b.getAttribute('data-view');
+    Array.prototype.forEach.call(document.querySelectorAll('.navtab'), function (x) {
+      x.className = 'navtab' + (x === b ? ' on' : '');
+    });
+    el('shopView').style.display = view === 'shop' ? '' : 'none';
+    el('inviteView').style.display = view === 'invite' ? '' : 'none';
+  };
+});
+
+el('invEmail').value = PREFILL.email;
+
+el('sendInvite').onclick = function () {
+  if (busy) return;
+  var name = el('invName').value.trim();
+  var email = el('invEmail').value.trim();
+  var ok = true;
+  showError('invName', 'errInvName', !name); if (!name) ok = false;
+  var emailOk = /^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(email);
+  showError('invEmail', 'errInvEmail', !emailOk); if (!emailOk) ok = false;
+  if (!ok) return;
+
+  busy = true;
+  el('sendInvite').disabled = true;
+  el('sendInvite').innerHTML = '<span class="spinner"></span>Sending…';
+
+  post('/api/invite', { name: name, email: email, role: el('invRole').value })
+    .then(function (res) {
+      var r = res.body;
+      if (r.error && !r.template_key) { toast(r.error, true); return; }
+      el('inviteResult').innerHTML =
+        '<div class="mailed ' + (r.sent ? 'ok' : 'bad') + '" style="margin-top:16px">' +
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 6 10-6"/></svg>' +
+          '<span>' + (r.sent
+            ? 'Template <b>' + esc(r.template_key) + '</b> sent to <b>' + esc(r.recipient) + '</b>.'
+            : 'Template <b>' + esc(r.template_key) + '</b> was refused: ' + esc(r.error)) +
+          '</span></div>';
+      toast(r.sent ? 'Invitation sent' : 'Invitation failed', !r.sent);
+    })
+    .catch(function (e) { toast(String(e), true); })
+    .finally(function () {
+      busy = false;
+      el('sendInvite').disabled = false;
+      el('sendInvite').textContent = 'Send invitation';
+    });
 };
 
 fetch('/api/products').then(function (r) { return r.json(); }).then(function (products) {

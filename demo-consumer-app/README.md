@@ -4,16 +4,20 @@ A pretend storefront that consumes Notifyr. It owns **no** notification code:
 no provider SDK, no email HTML, no retry loop, no delivery tracking. It holds
 one API key and makes one HTTP call.
 
-## The flow
+## Two screens, two templates, one key
+
+**Shop** — add to cart, pay, and the payment template is sent:
 
 ```
-add to cart → checkout → pay → invoice emailed
-              (order created,  (gateway charges,   (INVOICE_PAID
-               pending_payment) order → paid,       through Notifyr)
-                                invoice issued)
+add to cart → checkout → pay → email sent
+              (pending_payment)   (order → paid, invoice issued)
 ```
 
-Checkout sends nothing — an order nobody has paid for is not news.
+**Invite** — no order, no payment, a different template through the same key.
+
+Checkout itself sends nothing; an order nobody has paid for is not news. An API
+key belongs to a project, and every template in that project is reachable with
+it, so both screens share one key.
 
 ## Setup
 
@@ -28,13 +32,12 @@ Needs MongoDB running locally. Then open http://localhost:4321.
 Before the first run, create in the Notifyr dashboard:
 
 1. A project, if you don't have one
-2. An `INVOICE_PAID` email template in it, declaring these variables:
-   `customer_name`, `invoice_no`, `order_no`, `items_summary`, `subtotal`,
-   `tax`, `amount_paid`, `payment_ref`, `paid_on`, `store_name`
+2. Two email templates in it — one for payments, one for invites. Declare
+   whichever variables you want from the list in `.env.example`
 3. An API key — the value is shown once; paste it into `.env`
 
-To use a template you already have, set `NOTIFYR_TEMPLATE_KEY` instead. The app
-sends a wide set of variables (listed in `.env.example`), so any template whose
+Name them in `.env` as `TEMPLATE_NAME` and `TEMPLATE_INVITE`. The app sends a
+wide set of variables (listed in `.env.example`), so any template whose
 variables are a subset of those works without a code change.
 
 ## Its own database
@@ -75,6 +78,7 @@ src/
 | Endpoint | |
 |---|---|
 | `GET /api/products` | Catalogue |
+| `POST /api/invite` | Sends the invite template — no order involved |
 | `POST /api/checkout` | Creates an order in `pending_payment` |
 | `POST /api/orders/:orderNo/pay` | Charges, then invoices |
 

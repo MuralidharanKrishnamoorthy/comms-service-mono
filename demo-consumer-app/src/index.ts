@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { serve } from '@hono/node-server'
 import { Hono } from 'hono'
 import { page } from './page.js'
@@ -23,14 +24,92 @@ import {
  * makes one HTTP call.
  */
 
-/** Point this at your own template in .env; orderVariables() supplies the values. */
-const TEMPLATE_KEY = (process.env.NOTIFYR_TEMPLATE_KEY ?? 'INVOICE_PAID').trim().toUpperCase()
+const PORT = Number(process.env.PORT ?? 4321)
+
+/** One template per event. Both must be in the same project as COMMS_API_KEY. */
+const TEMPLATE_NAME = process.env.TEMPLATE_NAME?.trim() || 'INVOICE_PAID'
+const TEMPLATE_INVITE = process.env.TEMPLATE_INVITE?.trim() || 'USER_INVITE'
 
 const app = new Hono()
+
+/** Sends one template and records the outcome on the order. */
+async function notify(order: OrderDoc, templateKey: string, extra?: Record<string, string>) {
+  const result = await sendNotification({
+    template_key: templateKey,
+    channel: 'email',
+    recipient: order.customer.email,
+    data: orderVariables(order, extra),
+  })
+
+  const notification: OrderDoc['notification'] = {
+    status: result.ok ? 'sent' : 'failed',
+    template_key: templateKey,
+    message_log_id: result.ok
+      ? String((result.body as { message_log_id?: string })?.message_log_id ?? '')
+      : null,
+    error: result.ok
+      ? null
+      : String((result.body as { error?: string })?.error ?? `HTTP ${result.status}`),
+    at: new Date(),
+  }
+
+  await recordNotification(order.order_no, notification)
+  console.log(
+    `[notifyr] ${templateKey} for ${order.order_no} — ` +
+      (result.ok ? 'accepted' : `refused (${result.status || 'unreachable'})`)
+  )
+  return notification
+}
 
 app.get('/', (c) => c.html(page()))
 app.get('/api/config', (c) => c.json({ store_name: STORE_NAME, ...config() }))
 app.get('/api/products', async (c) => c.json(await listProducts()))
+
+/** A second event, so a second template — and no order, so its own variables. */
+app.post('/api/invite', async (c) => {
+  const body = await c.req.json().catch(() => null)
+  const name = String(body?.name ?? '').trim()
+  const email = String(body?.email ?? '').trim().toLowerCase()
+
+  if (!name) return c.json({ error: 'A name is required' }, 400)
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    return c.json({ error: 'A valid email is required' }, 400)
+  }
+
+  const inviteUrl = `${process.env.PUBLIC_URL ?? `http://localhost:${PORT}`}/join/${randomUUID().slice(0, 8)}`
+
+  const result = await sendNotification({
+    template_key: TEMPLATE_INVITE,
+    channel: 'email',
+    recipient: email,
+    data: {
+      name,
+      user_name: name,
+      customer_name: name,
+      email,
+      invite_url: inviteUrl,
+      role: String(body?.role ?? 'Member'),
+      system: STORE_NAME,
+      store_name: STORE_NAME,
+      company_name: STORE_NAME,
+      brand: STORE_NAME,
+    },
+  })
+
+  console.log(
+    `[notifyr] ${TEMPLATE_INVITE} to ${email} — ` +
+      (result.ok ? 'accepted' : `refused (${result.status || 'unreachable'})`)
+  )
+
+  return c.json({
+    sent: result.ok,
+    template_key: TEMPLATE_INVITE,
+    recipient: email,
+    invite_url: inviteUrl,
+    status: result.status,
+    error: result.ok ? null : String((result.body as { error?: string })?.error ?? `HTTP ${result.status}`),
+  })
+})
 
 app.post('/api/checkout', async (c) => {
   const body = await c.req.json().catch(() => null)
@@ -43,11 +122,7 @@ app.post('/api/checkout', async (c) => {
   return c.json({ order }, 201)
 })
 
-/**
- * Pay, then invoice. The payment is written and the order moved to `paid`
- * before anything is sent — mailing a receipt for money the store might not
- * have would be worse than mailing late.
- */
+/** Pay, then invoice. Nothing is sent until the payment is committed. */
 app.post('/api/orders/:orderNo/pay', async (c) => {
   const orderNo = c.req.param('orderNo')
   const body = await c.req.json().catch(() => null)
@@ -80,6 +155,7 @@ app.post('/api/orders/:orderNo/pay', async (c) => {
 
   if (result.status === 'failed') {
     await markPaymentFailed(order.order_no)
+    // Nothing is mailed for a payment that did not settle.
     return c.json({ paid: false, payment: result, order: await findOrder(order.order_no) }, 402)
   }
 
@@ -90,37 +166,9 @@ app.post('/api/orders/:orderNo/pay', async (c) => {
     return c.json({ error: `${orderNo} was already settled`, order: await findOrder(orderNo) }, 409)
   }
 
-  const notifyr = await sendNotification({
-    template_key: TEMPLATE_KEY,
-    channel: 'email',
-    recipient: paid.customer.email,
-    data: orderVariables(paid),
-  })
+  const notification = await notify(paid, TEMPLATE_NAME)
 
-  const notification: OrderDoc['notification'] = {
-    status: notifyr.ok ? 'sent' : 'failed',
-    message_log_id: notifyr.ok
-      ? String((notifyr.body as { message_log_id?: string })?.message_log_id ?? '')
-      : null,
-    error: notifyr.ok
-      ? null
-      : String((notifyr.body as { error?: string })?.error ?? `HTTP ${notifyr.status}`),
-    at: new Date(),
-  }
-  await recordNotification(paid.order_no, notification)
-  console.log(
-    `[notifyr] ${TEMPLATE_KEY} for ${paid.order_no} — ` +
-      (notifyr.ok ? 'accepted' : `refused (${notifyr.status || 'unreachable'})`)
-  )
-
-  // The payment stands whether or not the email went out. Failing now would
-  // tell the customer their payment failed, which is false.
-  return c.json({
-    paid: true,
-    payment: result,
-    order: { ...paid, notification },
-    notifyr: { status: notifyr.status, ok: notifyr.ok },
-  })
+  return c.json({ paid: true, payment: result, order: { ...paid, notification } })
 })
 
 app.onError((err, c) => {
@@ -129,7 +177,6 @@ app.onError((err, c) => {
   return c.json({ error: 'The storefront hit an unexpected error' }, 500)
 })
 
-const PORT = Number(process.env.PORT ?? 4321)
 
 async function main() {
   await connectStoreDb()
@@ -137,7 +184,7 @@ async function main() {
   serve({ fetch: app.fetch, port: PORT }, (info) => {
     const cfg = config()
     console.log(`${STORE_NAME} running on http://localhost:${info.port}`)
-    console.log(`  Notifyr: ${cfg.baseUrl}  key: ${cfg.keyPrefix}  template: ${TEMPLATE_KEY}`)
+    console.log(`  Notifyr: ${cfg.baseUrl}  key: ${cfg.keyPrefix}  templates: ${TEMPLATE_NAME} / ${TEMPLATE_INVITE}`)
     if (!cfg.configured) {
       console.warn('  No credentials — set COMMS_BASE_URL and COMMS_API_KEY in .env')
     }

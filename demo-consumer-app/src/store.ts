@@ -92,7 +92,7 @@ export async function createOrder(input: {
     status: 'pending_payment',
     payment_ref: null,
     invoice: null,
-    notification: { status: 'not_sent', message_log_id: null, error: null, at: null },
+    notification: { status: 'not_sent', template_key: null, message_log_id: null, error: null, at: null },
     created_at: now,
     updated_at: now,
   }
@@ -153,16 +153,17 @@ export async function recordNotification(
 }
 
 /**
- * Flattens an order into the primitives a template declares. Notifyr only fails
- * a send for a *missing* required variable and ignores the rest, so every value
- * is offered under the names people reach for — whichever subset your template
- * uses, it works. Something missing? The send returns 422 naming it; add a line.
+ * Flattens an order into the primitives a template declares. Notifyr ignores
+ * variables a template does not use, so every value is offered under the names
+ * people reach for. Missing one? The send returns 422 naming it; add a line.
  */
-export function orderVariables(order: OrderDoc) {
+export function orderVariables(order: OrderDoc, extra: Record<string, string | number> = {}) {
   const amount = (value: number) => `${value.toFixed(2)} ${order.currency}`
   const paidOn = order.invoice?.issued_at ?? new Date()
 
   return {
+    ...extra,
+    name: order.customer.full_name,
     customer_name: order.customer.full_name,
     customer_email: order.customer.email,
     user_name: order.customer.full_name,
@@ -186,6 +187,7 @@ export function orderVariables(order: OrderDoc) {
     paid_on: paidOn.toUTCString(),
     paid_date: paidOn.toDateString(),
 
+    system: STORE_NAME,
     store_name: STORE_NAME,
     company_name: STORE_NAME,
     brand: STORE_NAME,

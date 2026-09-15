@@ -1,15 +1,6 @@
 import { randomUUID } from 'node:crypto'
 
-/**
- * A stand-in payment gateway.
- *
- * Real gateways are slow, occasionally decline, and hand back a reference you
- * are expected to store. This one does all three, because an integration that
- * only ever sees the happy path is an integration that has not been tested.
- *
- * Card numbers here are the usual test values — nothing real is accepted, and
- * nothing sensitive is stored: only the last four digits ever leave this file.
- */
+/** A stand-in gateway: slow, sometimes declines, returns a reference. */
 
 export type PaymentMethod = 'card' | 'upi' | 'netbanking'
 
@@ -30,8 +21,7 @@ interface ChargeResult {
 const DECLINE_PREFIX = '4000'
 
 export async function charge(input: ChargeInput): Promise<ChargeResult> {
-  // Gateways take a moment. Making that visible keeps the UI honest about
-  // needing a pending state rather than pretending payment is instant.
+  // Gateways take a moment; the UI needs a pending state because of it.
   await new Promise((resolve) => setTimeout(resolve, 700))
 
   const digits = (input.card_number ?? '').replace(/\D/g, '')

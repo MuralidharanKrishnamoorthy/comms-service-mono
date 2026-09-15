@@ -42,6 +42,8 @@ export interface OrderDoc {
   /** Kept on the order so a failed invoice email can be found and resent. */
   notification: {
     status: 'not_sent' | 'sent' | 'failed'
+    /** Which template was used — a project has many. */
+    template_key: string | null
     message_log_id: string | null
     error: string | null
     at: Date | null
