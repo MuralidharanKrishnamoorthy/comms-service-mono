@@ -11,6 +11,8 @@ import type {
   Project,
   Role,
   Template,
+  ReviewTemplate,
+  TemplateStatusFilter,
 } from './types'
 
 export const API_BASE: string =
@@ -190,6 +192,25 @@ export const updateChannel = (
   request<Template>(`/projects/${projectId}/templates/${templateKey}/${channel}`, {
     method: 'PATCH',
     body: JSON.stringify(body),
+  })
+
+// ---------- Template approvals ----------
+// The admin review queue (cross-project), filtered by status; defaults to
+// pending server-side. Non-admins receive only their own templates here.
+export const listReviewTemplates = (status?: TemplateStatusFilter) =>
+  request<ReviewTemplate[]>('/templates', { query: { status } })
+
+// Approved templates the caller may actually use — the server's source of truth
+// for any picker, so usability is never inferred from a raw template list.
+export const listUsableTemplates = () => request<Template[]>('/templates/usable')
+
+export const approveTemplate = (id: string) =>
+  request<Template>(`/templates/${id}/approve`, { method: 'PATCH' })
+
+export const rejectTemplate = (id: string, reason?: string) =>
+  request<Template>(`/templates/${id}/reject`, {
+    method: 'PATCH',
+    body: JSON.stringify({ reason }),
   })
 
 // ---------- Categories (global — not scoped to a project) ----------

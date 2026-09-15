@@ -603,6 +603,38 @@ textarea.invalid,
   color: var(--warning);
 }
 
+/* A multi-select option that can't be picked yet (e.g. an unapproved template). */
+.ms-option-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Inline pair of row action buttons (Approve / Reject in the review queue). */
+.row-actions {
+  display: inline-flex;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+/* ---------- Template approval badge ---------- */
+.approval-badge-wrap {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+}
+/* These labels are full phrases ("Waiting for approval"), so opt out of the
+   per-word capitalisation the generic .badge applies. */
+.approval-badge-wrap .badge {
+  text-transform: none;
+}
+.approval-reason {
+  font-size: 0.8125rem;
+  color: var(--danger);
+  line-height: 1.35;
+  max-width: 320px;
+}
+
 /* ---------- Tables ---------- */
 .table-wrap {
   background: var(--surface);

@@ -4,7 +4,7 @@ import { useStore } from '../store'
 import { ApiError, API_BASE, getTemplate, updateChannel } from '../api'
 import type { Channel, Template } from '../types'
 import { ChannelFields, variablesFor, type ChannelValues } from '../components/ChannelFields'
-import { ApiBanner, BackLink, PageHeader } from '../components/ui'
+import { ApiBanner, BackLink, PageHeader, TemplateStatusBadge } from '../components/ui'
 import { enabledChannels, formatDate, returnTarget } from '../util'
 
 const CHANNEL_LABELS: Record<Channel, string> = { email: 'Email', sms: 'SMS', push: 'Push' }
@@ -144,7 +144,23 @@ export function TemplateEdit({ templateKey }: { path?: string; templateKey?: str
         </div>
       ) : (
         <>
-          <PageHeader title={template.name} subtitle="Edit channel content" />
+          <PageHeader
+            title={template.name}
+            subtitle="Edit channel content"
+            actions={<TemplateStatusBadge status={template.status} />}
+          />
+
+          {template.status === 'rejected' && (
+            <div class="banner-warning" role="alert" style={{ marginBottom: 18 }}>
+              <strong>This template was rejected.</strong>
+              {template.rejection_reason ? (
+                <span> Reason: {template.rejection_reason}</span>
+              ) : (
+                <span> No reason was given.</span>
+              )}
+              <span> Edit the content and save to resubmit it for approval.</span>
+            </div>
+          )}
 
           <div class="card" style={{ marginBottom: 18 }}>
             <dl class="dl">

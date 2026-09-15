@@ -127,8 +127,12 @@ export function TemplateNew(_props: { path?: string }) {
     if (!validate()) return
     setSubmitting(true)
     try {
-      const created = await createTemplate(selectedProject._id, assembleBody())
-      route(`/templates/${created.template_key}`)
+      await createTemplate(selectedProject._id, assembleBody())
+      // Hand a one-time confirmation to the templates list, which will show the
+      // new template straight away with its "Waiting for approval" badge. (No
+      // toast system here — this is the app's flash convention.)
+      sessionStorage.setItem('template_flash', 'Template submitted — waiting for admin approval.')
+      route('/templates')
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.isNetwork) {

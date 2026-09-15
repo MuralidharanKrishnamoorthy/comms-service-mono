@@ -48,14 +48,33 @@ export interface ChannelContent {
   live: boolean
 }
 
+export type TemplateStatus = 'pending' | 'approved' | 'rejected'
+export type TemplateStatusFilter = TemplateStatus | 'all'
+
 export interface Template {
   _id: string
   project_id: string
   template_key: string
   name: string
   channels: Partial<Record<Channel, ChannelContent>>
+
+  // Approval workflow. Always sent by the server — never inferred client-side.
+  status: TemplateStatus
+  created_by: string | null
+  reviewed_by: string | null
+  reviewed_at: string | null
+  rejection_reason: string | null
+
   created_at: string
   updated_at: string
+}
+
+// A row in the admin review queue: a template plus the creator/project names
+// the server hydrates for display.
+export interface ReviewTemplate extends Template {
+  creator_name: string | null
+  creator_email: string | null
+  project_name: string | null
 }
 
 export interface AttachedTemplateRow {

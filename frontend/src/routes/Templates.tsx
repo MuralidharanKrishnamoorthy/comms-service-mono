@@ -3,7 +3,7 @@ import { route } from 'preact-router'
 import { useStore } from '../store'
 import { ApiError, API_BASE, listTemplates } from '../api'
 import type { Template } from '../types'
-import { ApiBanner, ChannelChips, Dropdown, PageHeader } from '../components/ui'
+import { ApiBanner, ChannelChips, Dropdown, PageHeader, TemplateStatusBadge } from '../components/ui'
 import { enabledChannels, formatDate } from '../util'
 
 export function Templates(_props: { path?: string }) {
@@ -11,6 +11,16 @@ export function Templates(_props: { path?: string }) {
   const [templates, setTemplates] = useState<Template[]>([])
   const [loading, setLoading] = useState(true)
   const [unreachable, setUnreachable] = useState(false)
+  // One-time confirmation handed over from the create form (see TemplateNew).
+  const [flash, setFlash] = useState<string | null>(null)
+
+  useEffect(() => {
+    const msg = sessionStorage.getItem('template_flash')
+    if (msg) {
+      setFlash(msg)
+      sessionStorage.removeItem('template_flash')
+    }
+  }, [])
 
   useEffect(() => {
     if (!selectedProject) {
@@ -64,6 +74,7 @@ export function Templates(_props: { path?: string }) {
         }
       />
 
+      {flash && <div class="banner-success" role="status">{flash}</div>}
       {unreachable && <ApiBanner base={API_BASE} />}
 
       <div class="toolbar">
@@ -86,21 +97,22 @@ export function Templates(_props: { path?: string }) {
             <tr>
               <th>Template</th>
               <th>Channels</th>
+              <th>Status</th>
               <th>Last updated</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr class="state-row">
-                <td colSpan={3}>Loading…</td>
+                <td colSpan={4}>Loading…</td>
               </tr>
             ) : unreachable ? (
               <tr class="state-row">
-                <td colSpan={3}>Couldn't load templates.</td>
+                <td colSpan={4}>Couldn't load templates.</td>
               </tr>
             ) : visible.length === 0 ? (
               <tr class="state-row">
-                <td colSpan={3}>No templates yet — click New template to create one.</td>
+                <td colSpan={4}>No templates yet — click New template to create one.</td>
               </tr>
             ) : (
               visible.map((t) => (
@@ -115,6 +127,9 @@ export function Templates(_props: { path?: string }) {
                   </td>
                   <td>
                     <ChannelChips channels={enabledChannels(t.channels ?? {})} />
+                  </td>
+                  <td>
+                    <TemplateStatusBadge status={t.status} rejectionReason={t.rejection_reason} showReason />
                   </td>
                   <td class="cell-faint">{formatDate(t.updated_at)}</td>
                 </tr>

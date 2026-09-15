@@ -1,6 +1,6 @@
 import type { ComponentChildren } from 'preact'
 import { useEffect, useRef, useState } from 'preact/hooks'
-import type { MessageStatus } from '../types'
+import type { MessageStatus, TemplateStatus } from '../types'
 
 export interface DropdownOption {
   value: string
@@ -10,6 +10,10 @@ export interface DropdownOption {
   // trigger and the selected chips show the label on its own, so this can be
   // as long as it needs to be.
   hint?: string
+  // A non-selectable option: greyed out and non-clickable in MultiSelect, with
+  // `disabledReason` shown as a hover tooltip (e.g. a template not yet approved).
+  disabled?: boolean
+  disabledReason?: string
 }
 
 export function Dropdown({
@@ -162,8 +166,11 @@ export function MultiSelect({
     }
   }, [open])
 
-  const toggle = (v: string) =>
+  const toggle = (v: string) => {
+    const opt = options.find((o) => o.value === v)
+    if (opt?.disabled) return
     onChange(values.includes(v) ? values.filter((x) => x !== v) : [...values, v])
+  }
 
   const selectedOptions = options.filter((o) => values.includes(o.value))
 
@@ -215,9 +222,12 @@ export function MultiSelect({
                 <button
                   type="button"
                   key={o.value}
-                  class={`dropdown-option ms-option ${checked ? 'selected' : ''}`}
+                  class={`dropdown-option ms-option ${checked ? 'selected' : ''} ${o.disabled ? 'ms-option-disabled' : ''}`}
                   role="option"
                   aria-selected={checked}
+                  aria-disabled={o.disabled}
+                  disabled={o.disabled}
+                  title={o.disabled ? o.disabledReason : undefined}
                   onClick={() => toggle(o.value)}
                 >
                   <span class={`ms-check ${checked ? 'on' : ''}`} aria-hidden="true">
@@ -275,6 +285,42 @@ export function StatusBadge({ status }: { status: string }) {
 
 export function statusClass(status: MessageStatus): string {
   return status
+}
+
+// ---------- Template approval badge ----------
+// The three approval states, mapped onto the same badge palette as everything
+// else (amber = waiting, green = approved, red = rejected). For a rejection the
+// reason shows on hover (title tooltip) and, when `showReason` is set, as a
+// small line beneath the badge.
+const APPROVAL_LABEL: Record<TemplateStatus, string> = {
+  pending: 'Waiting for approval',
+  approved: 'Approved',
+  rejected: 'Rejected',
+}
+const APPROVAL_CLASS: Record<TemplateStatus, string> = {
+  pending: 'badge-warning',
+  approved: 'badge-success',
+  rejected: 'badge-danger',
+}
+
+export function TemplateStatusBadge({
+  status,
+  rejectionReason,
+  showReason = false,
+}: {
+  status: TemplateStatus
+  rejectionReason?: string | null
+  showReason?: boolean
+}) {
+  const reason = status === 'rejected' ? rejectionReason ?? undefined : undefined
+  return (
+    <span class="approval-badge-wrap">
+      <span class={`badge ${APPROVAL_CLASS[status]}`} title={reason}>
+        {APPROVAL_LABEL[status]}
+      </span>
+      {showReason && reason && <span class="approval-reason">{reason}</span>}
+    </span>
+  )
 }
 
 // ---------- Channel chips ----------

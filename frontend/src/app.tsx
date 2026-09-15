@@ -13,6 +13,7 @@ import { TemplateNew } from './routes/TemplateNew'
 import { TemplateEdit } from './routes/TemplateEdit'
 import { Logs } from './routes/Logs'
 import { UsersAccess, RoleBadge } from './routes/UsersAccess'
+import { TemplateApprovals } from './routes/TemplateApprovals'
 import { Profile } from './routes/Profile'
 
 // Whether a nav item should read as active for the current path. Detail routes
@@ -67,6 +68,7 @@ const ICONS = {
   categories: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z',
   logs: 'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',
   users: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 0 .01M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
+  approvals: 'M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11',
 }
 
 function Sidebar({ path }: { path: string }) {
@@ -93,6 +95,12 @@ function Sidebar({ path }: { path: string }) {
           <NavIcon d={ICONS.logs} />
           Notification Logs
         </NavLink>
+        {user?.role === 'admin' && (
+          <NavLink href="/admin/templates" path={path}>
+            <NavIcon d={ICONS.approvals} />
+            Template Approvals
+          </NavLink>
+        )}
         {user?.role === 'admin' && (
           <NavLink href="/admin/users" path={path}>
             <NavIcon d={ICONS.users} />
@@ -165,6 +173,7 @@ function Shell() {
               <TemplateEdit path="/templates/:templateKey" />
               <Logs path="/logs" />
               <UsersAccess path="/admin/users" />
+              <TemplateApprovals path="/admin/templates" />
               <Profile path="/profile" />
               <NotFound default />
             </Router>

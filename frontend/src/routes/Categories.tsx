@@ -420,7 +420,9 @@ function EditCategoryModal({
                 options={candidates.map((t) => ({
                   value: t.template_key,
                   label: t.name,
-                  hint: t.template_key,
+                  hint: t.status === 'approved' ? t.template_key : `${t.template_key} · not approved`,
+                  disabled: t.status !== 'approved',
+                  disabledReason: 'Not yet approved',
                 }))}
               />
             )}
@@ -595,7 +597,9 @@ function CreateCategoryModal({ onClose, onCreated }: { onClose: () => void; onCr
                 options={templates.map((t) => ({
                   value: t.template_key,
                   label: t.name,
-                  hint: t.template_key,
+                  hint: t.status === 'approved' ? t.template_key : `${t.template_key} · not approved`,
+                  disabled: t.status !== 'approved',
+                  disabledReason: 'Not yet approved',
                 }))}
               />
             )}
