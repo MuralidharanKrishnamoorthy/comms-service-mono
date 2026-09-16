@@ -11,6 +11,7 @@ import type { Template } from '../models/template.js'
 import type { Project } from '../models/project.js'
 import type { AuthEnv } from '../middleware/dashboardAuth.js'
 import { allowedProjectIds, hasProjectAccess } from '../lib/access.js'
+import { isUsable } from '../lib/templateReview.js'
 import type { AuthUser } from '../middleware/dashboardAuth.js'
 
 export const categoriesRoute = new Hono<AuthEnv>()
@@ -20,7 +21,9 @@ type RequestedTemplate = { project_id: string; template_key: string }
 async function resolveAttachments(
   user: AuthUser,
   requested: RequestedTemplate[]
-): Promise<{ ok: true; attachments: AttachedTemplate[] } | { ok: false; status: 403 | 404; error: string }> {
+): Promise<
+  { ok: true; attachments: AttachedTemplate[] } | { ok: false; status: 403 | 404 | 409; error: string }
+> {
   const distinctProjectIds = [...new Set(requested.map((t) => t.project_id))]
   for (const projectId of distinctProjectIds) {
     if (!hasProjectAccess(user, projectId)) {
@@ -47,6 +50,12 @@ async function resolveAttachments(
     const template = byKey.get(lookupKey)
     if (!template) {
       return { ok: false, status: 404, error: `Template "${req.template_key}" not found` }
+    }
+    // Attaching a template to a category is a form of putting it to use, so the
+    // same approval gate applies — only approved templates may be grouped.
+    // Enforced server-side even though the picker greys out the rest.
+    if (!isUsable(template)) {
+      return { ok: false, status: 409, error: `Template "${req.template_key}" is not approved for use` }
     }
     // Keyed by project+template so the same pair sent twice attaches once.
     attachments.set(lookupKey, {

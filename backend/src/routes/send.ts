@@ -7,6 +7,7 @@ import { createMessageLog, markSent, markFailedAndScheduleRetry } from '../lib/m
 import { dispatchSend } from '../lib/dispatch.js'
 import type { Project } from '../models/project.js'
 import { normalizeTemplateKey, type Template } from '../models/template.js'
+import { isUsable } from '../lib/templateReview.js'
 
 const sendSchema = z.object({
   template_key: z.string().min(1).transform(normalizeTemplateKey),
@@ -40,6 +41,12 @@ sendRoute.post('/', async (c) => {
   })
   if (!template) {
     return c.json({ error: `Template "${template_key}" not found` }, 404)
+  }
+  // A template may only be sent once it is approved. Enforced here, server-side,
+  // so a pending or rejected template cannot be used no matter what the caller
+  // does — the single gate for actually applying a template.
+  if (!isUsable(template)) {
+    return c.json({ error: `Template "${template_key}" is not approved for use` }, 403)
   }
 
   const channelContent = template.channels[channel]

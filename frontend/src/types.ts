@@ -48,12 +48,20 @@ export interface ChannelContent {
   live: boolean
 }
 
+export type TemplateStatus = 'pending' | 'approved' | 'rejected'
+export type TemplateStatusFilter = 'all' | TemplateStatus
+
 export interface Template {
   _id: string
   project_id: string
   template_key: string
   name: string
   channels: Partial<Record<Channel, ChannelContent>>
+  status: TemplateStatus
+  created_by: string | null
+  reviewed_by: string | null
+  reviewed_at: string | null
+  rejection_reason: string | null
   created_at: string
   updated_at: string
 }

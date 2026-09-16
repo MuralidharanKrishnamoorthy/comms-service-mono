@@ -11,6 +11,7 @@ import type {
   Project,
   Role,
   Template,
+  TemplateStatusFilter,
 } from './types'
 
 export const API_BASE: string =
@@ -169,8 +170,22 @@ export const revokeApiKey = (projectId: string, keyId: string) =>
   )
 
 // ---------- Templates ----------
-export const listTemplates = (projectId: string) =>
-  request<Template[]>(`/projects/${projectId}/templates`)
+// `status` narrows the list to one review status (admins only — the backend
+// ignores it for other roles). Omit or pass 'all' for no status filter.
+export const listTemplates = (projectId: string, status?: TemplateStatusFilter) => {
+  const qs = status && status !== 'all' ? `?status=${status}` : ''
+  return request<Template[]>(`/projects/${projectId}/templates${qs}`)
+}
+
+// Approve/reject a template by id (admin only). Both return the updated template.
+export const approveTemplate = (templateId: string) =>
+  request<Template>(`/templates/${templateId}/approve`, { method: 'PATCH' })
+
+export const rejectTemplate = (templateId: string, reason?: string) =>
+  request<Template>(`/templates/${templateId}/reject`, {
+    method: 'PATCH',
+    body: JSON.stringify({ reason }),
+  })
 
 export const getTemplate = (projectId: string, templateKey: string) =>
   request<Template>(`/projects/${projectId}/templates/${templateKey}`)

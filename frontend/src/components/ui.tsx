@@ -10,6 +10,11 @@ export interface DropdownOption {
   // trigger and the selected chips show the label on its own, so this can be
   // as long as it needs to be.
   hint?: string
+  // A greyed-out, unselectable option (MultiSelect only) — e.g. a template that
+  // is not yet approved and so may not be grouped. `disabledReason` explains why
+  // in place of the hint.
+  disabled?: boolean
+  disabledReason?: string
 }
 
 export function Dropdown({
@@ -162,8 +167,11 @@ export function MultiSelect({
     }
   }, [open])
 
-  const toggle = (v: string) =>
+  const toggle = (v: string) => {
+    const opt = options.find((o) => o.value === v)
+    if (opt?.disabled) return
     onChange(values.includes(v) ? values.filter((x) => x !== v) : [...values, v])
+  }
 
   const selectedOptions = options.filter((o) => values.includes(o.value))
 
@@ -215,9 +223,12 @@ export function MultiSelect({
                 <button
                   type="button"
                   key={o.value}
-                  class={`dropdown-option ms-option ${checked ? 'selected' : ''}`}
+                  class={`dropdown-option ms-option ${checked ? 'selected' : ''} ${o.disabled ? 'ms-option-disabled' : ''}`}
                   role="option"
                   aria-selected={checked}
+                  aria-disabled={o.disabled}
+                  disabled={o.disabled}
+                  title={o.disabled ? o.disabledReason : undefined}
                   onClick={() => toggle(o.value)}
                 >
                   <span class={`ms-check ${checked ? 'on' : ''}`} aria-hidden="true">
@@ -228,7 +239,11 @@ export function MultiSelect({
                     )}
                   </span>
                   {o.label}
-                  {o.hint && <span class="dropdown-option-hint mono">{o.hint}</span>}
+                  {(o.disabled ? o.disabledReason : o.hint) && (
+                    <span class="dropdown-option-hint mono">
+                      {o.disabled ? o.disabledReason : o.hint}
+                    </span>
+                  )}
                 </button>
               )
             })
@@ -261,16 +276,18 @@ export function TrashIcon() {
 }
 
 // ---------- Status badge ----------
-export function StatusBadge({ status }: { status: string }) {
+// `label` overrides the visible text while the colour still comes from the real
+// `status` — e.g. showing "pending approval" without changing the amber pill.
+export function StatusBadge({ status, label }: { status: string; label?: string }) {
   const cls =
-    status === 'sent' || status === 'delivered' || status === 'active'
+    status === 'sent' || status === 'delivered' || status === 'active' || status === 'approved'
       ? 'badge-success'
-      : status === 'failed' || status === 'revoked'
+      : status === 'failed' || status === 'revoked' || status === 'rejected'
         ? 'badge-danger'
         : status === 'pending' || status === 'expired'
           ? 'badge-warning'
           : 'badge-neutral'
-  return <span class={`badge ${cls}`}>{status}</span>
+  return <span class={`badge ${cls}`}>{label ?? status}</span>
 }
 
 export function statusClass(status: MessageStatus): string {
@@ -299,6 +316,25 @@ export function ApiBanner({ base }: { base: string }) {
       <span>
         Can't reach the API at <span class="mono">{base}</span> — is the backend running?
       </span>
+    </div>
+  )
+}
+
+// ---------- Toast ----------
+// A single transient confirmation, pinned bottom-right. Presentational only —
+// the owner holds the message in state and clears it on a timer.
+export function Toast({
+  message,
+  tone = 'success',
+}: {
+  message: string
+  tone?: 'success' | 'error'
+}) {
+  return (
+    <div class="toast-viewport">
+      <div class={`toast toast-${tone}`} role="status" aria-live="polite">
+        {message}
+      </div>
     </div>
   )
 }

@@ -417,11 +417,21 @@ function EditCategoryModal({
                   .map((s) => s.template_key)}
                 onChange={setPicksForProject}
                 placeholder="Choose templates"
-                options={candidates.map((t) => ({
-                  value: t.template_key,
-                  label: t.name,
-                  hint: t.template_key,
-                }))}
+                options={candidates.map((t) => {
+                  const alreadyAttached = selection.some(
+                    (s) => s.project_id === projectId && s.template_key === t.template_key
+                  )
+                  return {
+                    value: t.template_key,
+                    label: t.name,
+                    hint: t.template_key,
+                    // Only approved templates may be grouped. An already-attached
+                    // template that has since dropped to pending stays removable,
+                    // so it isn't disabled — it just can't be re-added once off.
+                    disabled: t.status !== 'approved' && !alreadyAttached,
+                    disabledReason: 'Not yet approved',
+                  }
+                })}
               />
             )}
           </div>
@@ -492,6 +502,10 @@ function CreateCategoryModal({ onClose, onCreated }: { onClose: () => void; onCr
       cancelled = true
     }
   }, [projectId])
+
+  // Pending/rejected templates aren't offered at all — a new category may only
+  // group templates that are already approved.
+  const approvedTemplates = templates.filter((t) => t.status === 'approved')
 
   const submit = async (e: Event) => {
     e.preventDefault()
@@ -587,12 +601,20 @@ function CreateCategoryModal({ onClose, onCreated }: { onClose: () => void; onCr
                 first, then come back — a category needs at least one template, and that is
                 what puts it in front of your teammates on the project.
               </div>
+            ) : approvedTemplates.length === 0 ? (
+              <div class="banner-warning">
+                None of this project's templates are approved yet, and only approved
+                templates can be grouped into a category. Get one approved on the Templates
+                page, then come back.
+              </div>
             ) : (
+              // Only approved templates are offered — a category may only group
+              // templates that are cleared for use.
               <MultiSelect
                 values={picked}
                 onChange={setPicked}
                 placeholder="Choose templates"
-                options={templates.map((t) => ({
+                options={approvedTemplates.map((t) => ({
                   value: t.template_key,
                   label: t.name,
                   hint: t.template_key,
@@ -602,7 +624,7 @@ function CreateCategoryModal({ onClose, onCreated }: { onClose: () => void; onCr
           </div>
         )}
 
-        {projectId && !templatesLoading && templates.length > 0 && picked.length === 0 && (
+        {projectId && !templatesLoading && approvedTemplates.length > 0 && picked.length === 0 && (
           <p class="subtle" style={{ margin: '0 0 10px' }}>
             Tick at least one template to continue.
           </p>
