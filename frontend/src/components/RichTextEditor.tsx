@@ -205,7 +205,7 @@ export function RichTextEditor({ value, onChange, placeholder, variableToken }: 
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml"
+          accept="image/png,image/jpeg,image/gif,image/webp"
           style={{ display: 'none' }}
           onChange={onFileChosen}
         />
