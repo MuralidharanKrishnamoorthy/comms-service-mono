@@ -2,6 +2,7 @@ import { serve } from '@hono/node-server'
 import { serveStatic } from '@hono/node-server/serve-static'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
+import { bodyLimit } from 'hono/body-limit'
 import { connectDb } from './db.js'
 import { projectsRoute } from './routes/projects.js'
 import { templatesRoute } from './routes/templates.js'
@@ -9,7 +10,7 @@ import { categoriesRoute } from './routes/categories.js'
 import { messageLogsRoute } from './routes/messageLogs.js'
 import { sendRoute } from './routes/send.js'
 import { webhooksRoute } from './routes/webhooks.js'
-import { uploadsRoute } from './routes/uploads.js'
+import { uploadsRoute, MAX_UPLOAD_BYTES } from './routes/uploads.js'
 import { authRoute } from './routes/auth.js'
 import { usersRoute } from './routes/users.js'
 import { membersRoute } from './routes/members.js'
@@ -43,6 +44,8 @@ app.use('/categories', dashboardAuth)
 app.use('/categories/*', dashboardAuth)
 
 app.use('/uploads', dashboardAuth)
+app.use('/uploads/*', dashboardAuth)
+app.use('/uploads', bodyLimit({ maxSize: MAX_UPLOAD_BYTES }))
 
 app.route('/projects/:projectId/members', membersRoute)
 app.route('/projects/:projectId/api-keys', apiKeysRoute)
@@ -54,7 +57,15 @@ app.route('/users', usersRoute)
 app.route('/uploads', uploadsRoute)
 app.use(
   '/uploads/*',
-  serveStatic({ root: 'uploads', rewriteRequestPath: (p) => p.replace(/^\/uploads/, '') })
+  serveStatic({
+    root: 'uploads',
+    rewriteRequestPath: (p) => p.replace(/^\/uploads/, ''),
+    onFound: (_path, c) => {
+      c.header('X-Content-Type-Options', 'nosniff')
+      c.header('Content-Disposition', 'attachment')
+      c.header('Content-Security-Policy', "default-src 'none'; sandbox")
+    },
+  })
 )
 
 async function main() {
