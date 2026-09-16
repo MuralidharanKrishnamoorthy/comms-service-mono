@@ -5,17 +5,21 @@ import { createTemplateSchema, updateChannelContentSchema, normalizeTemplateKey,
 import { hasProjectAccess } from '../lib/access.js';
 import { autoApprovedReviewFields, initialReviewFields, resetReviewForEdit, } from '../lib/templateReview.js';
 export const templatesRoute = new Hono();
+templatesRoute.use('*', async (c, next) => {
+    const projectId = c.req.param('projectId');
+    if (!projectId || !ObjectId.isValid(projectId)) {
+        return c.json({ error: 'Invalid projectId' }, 400);
+    }
+    if (!hasProjectAccess(c.get('user'), projectId)) {
+        return c.json({ error: 'You do not have access to this project' }, 403);
+    }
+    await next();
+});
 function withVersionAndLive(content) {
     return { ...content, version: 1, live: true };
 }
 templatesRoute.post('/', async (c) => {
     const projectId = c.req.param('projectId');
-    if (!projectId || !ObjectId.isValid(projectId)) {
-        return c.json({ error: 'Invalid projectId' }, 400);
-    }
-    if (!(await hasProjectAccess(c.get('user'), projectId))) {
-        return c.json({ error: 'You do not have access to this project' }, 403);
-    }
     const body = await c.req.json().catch(() => null);
     const parsed = createTemplateSchema.safeParse(body);
     if (!parsed.success) {
@@ -62,12 +66,6 @@ templatesRoute.post('/', async (c) => {
 });
 templatesRoute.get('/', async (c) => {
     const projectId = c.req.param('projectId');
-    if (!projectId || !ObjectId.isValid(projectId)) {
-        return c.json({ error: 'Invalid projectId' }, 400);
-    }
-    if (!(await hasProjectAccess(c.get('user'), projectId))) {
-        return c.json({ error: 'You do not have access to this project' }, 403);
-    }
     const user = c.get('user');
     const query = { project_id: new ObjectId(projectId) };
     if (user.role === 'admin') {
@@ -97,12 +95,6 @@ templatesRoute.get('/', async (c) => {
 templatesRoute.get('/:templateKey', async (c) => {
     const projectId = c.req.param('projectId');
     const templateKey = normalizeTemplateKey(c.req.param('templateKey') ?? '');
-    if (!projectId || !ObjectId.isValid(projectId)) {
-        return c.json({ error: 'Invalid projectId' }, 400);
-    }
-    if (!(await hasProjectAccess(c.get('user'), projectId))) {
-        return c.json({ error: 'You do not have access to this project' }, 403);
-    }
     const db = getDb();
     const template = await db.collection('templates').findOne({
         project_id: new ObjectId(projectId),
@@ -117,9 +109,6 @@ templatesRoute.patch('/:templateKey/:channel', async (c) => {
     const projectId = c.req.param('projectId');
     const templateKey = normalizeTemplateKey(c.req.param('templateKey') ?? '');
     const channel = c.req.param('channel');
-    if (!projectId || !ObjectId.isValid(projectId)) {
-        return c.json({ error: 'Invalid projectId' }, 400);
-    }
     if (channel !== 'email' && channel !== 'sms' && channel !== 'push') {
         return c.json({ error: 'channel must be one of: email, sms, push' }, 400);
     }
@@ -163,12 +152,6 @@ templatesRoute.patch('/:templateKey/:channel', async (c) => {
 templatesRoute.delete('/:templateKey', async (c) => {
     const projectId = c.req.param('projectId');
     const templateKey = normalizeTemplateKey(c.req.param('templateKey') ?? '');
-    if (!projectId || !ObjectId.isValid(projectId)) {
-        return c.json({ error: 'Invalid projectId' }, 400);
-    }
-    if (!(await hasProjectAccess(c.get('user'), projectId))) {
-        return c.json({ error: 'You do not have access to this project' }, 403);
-    }
     const db = getDb();
     const template = await db.collection('templates').findOne({
         project_id: new ObjectId(projectId),

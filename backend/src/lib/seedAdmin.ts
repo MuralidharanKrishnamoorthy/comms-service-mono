@@ -13,7 +13,14 @@ export async function seedAdmin(): Promise<void> {
   if (count > 0) return
 
   const email = (process.env.SEED_ADMIN_EMAIL || 'admin@local.dev').toLowerCase().trim()
-  const password = process.env.SEED_ADMIN_PASSWORD || 'admin12345'
+  const password = process.env.SEED_ADMIN_PASSWORD
+
+  if (!password) {
+    throw new Error(
+      'No users exist and SEED_ADMIN_PASSWORD is not set, so no administrator can be created. ' +
+        'Set SEED_ADMIN_PASSWORD (and optionally SEED_ADMIN_EMAIL) in backend/.env and start again.'
+    )
+  }
 
   const now = new Date()
   await db.collection<User>('users').insertOne({
@@ -23,15 +30,13 @@ export async function seedAdmin(): Promise<void> {
     role: 'admin',
     status: 'active',
     project_ids: [],
-
-    must_change_password: false,
+    must_change_password: true,
     created_at: now,
     updated_at: now,
   })
 
   console.warn(
-    `[auth] No users found — seeded an admin account: ${email} / ${password}\n` +
-      '       Change this immediately (set SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD, ' +
-      'or edit the user in the dashboard).'
+    `[auth] No users found — seeded an administrator: ${email}\n` +
+      '       The password is the one set in SEED_ADMIN_PASSWORD, and must be changed at first login.'
   )
 }
