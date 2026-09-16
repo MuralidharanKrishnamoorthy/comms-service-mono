@@ -128,8 +128,9 @@ const RICH_TEXT_TAGS = new Set([
 // Attributes that only appear in hand-built email layouts.
 const LAYOUT_ATTRIBUTES = /\s(bgcolor|cellpadding|cellspacing|valign|align|width|height|role|border)\s*=/i
 
-// The rich editor keeps inline styles only on these.
-const STYLEABLE = new Set(['span', 'img'])
+// The rich editor keeps inline styles only on these. `mark` carries the
+// highlight colour the editor itself writes, and parses it back unchanged.
+const STYLEABLE = new Set(['span', 'img', 'mark'])
 
 /**
  * Can the rich-text editor round-trip this HTML without dropping anything?
