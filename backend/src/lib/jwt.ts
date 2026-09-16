@@ -1,27 +1,28 @@
 import { sign, verify } from 'hono/jwt'
+import { z } from 'zod'
+import { requireSecret } from './env.js'
 
-const configured = process.env.DASH_JWT_SECRET
-if (!configured) {
-  console.warn(
-    '[auth] DASH_JWT_SECRET is not set — using an insecure development default. ' +
-      'Set DASH_JWT_SECRET in backend/.env before deploying.'
-  )
-}
-const JWT_SECRET = configured || 'dev-insecure-dashboard-secret-change-me'
+const JWT_SECRET = requireSecret('DASH_JWT_SECRET')
 
 const SESSION_TTL_SECONDS = 8 * 60 * 60
 
-export interface SessionClaims {
-  sub: string
-  role: string
-  iat: number
-  exp: number
-}
+const sessionClaimsSchema = z.object({
+  sub: z.string().min(1),
+  role: z.string().min(1),
+  iat: z.number(),
+  exp: z.number(),
+})
+
+export type SessionClaims = z.infer<typeof sessionClaimsSchema>
+
+export const SESSION_COOKIE = 'dash_session'
+export const SESSION_MAX_AGE = SESSION_TTL_SECONDS
 
 export async function signSession(userId: string, role: string): Promise<string> {
-  const now = Math.floor(Date.now() / 1000)
+  const issuedAt = Math.floor(Date.now() / 1000)
+
   return sign(
-    { sub: userId, role, iat: now, exp: now + SESSION_TTL_SECONDS },
+    { sub: userId, role, iat: issuedAt, exp: issuedAt + SESSION_TTL_SECONDS },
     JWT_SECRET,
     'HS256'
   )
@@ -29,11 +30,9 @@ export async function signSession(userId: string, role: string): Promise<string>
 
 export async function verifySession(token: string): Promise<SessionClaims | null> {
   try {
-    return (await verify(token, JWT_SECRET, 'HS256')) as unknown as SessionClaims
+    const claims = sessionClaimsSchema.safeParse(await verify(token, JWT_SECRET, 'HS256'))
+    return claims.success ? claims.data : null
   } catch {
     return null
   }
 }
-
-export const SESSION_COOKIE = 'dash_session'
-export const SESSION_MAX_AGE = SESSION_TTL_SECONDS
