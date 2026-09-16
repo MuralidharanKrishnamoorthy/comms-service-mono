@@ -138,6 +138,17 @@ export function TemplateEdit({ templateKey }: { path?: string; templateKey?: str
 
   return (
     <div>
+      {template?.status === 'rejected' && (
+        <div class="template-rejected-banner" role="alert">
+          <span class="template-rejected-dot" aria-hidden="true" />
+          <span class="template-rejected-text">
+            Rejected by admin.{' '}
+            {template.rejection_reason
+              ? `Reason: ${template.rejection_reason}`
+              : 'No reason provided.'}
+          </span>
+        </div>
+      )}
 
       <BackLink href={back.href} label={back.label} onClick={() => route(back.href)} />
 

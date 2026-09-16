@@ -203,11 +203,6 @@ export function Templates(_props: { path?: string }) {
                           // admin. The admin's own queue keeps the terse "pending".
                           label={!isAdmin && t.status === 'pending' ? 'pending approval' : undefined}
                         />
-                        {t.status === 'rejected' && t.rejection_reason && (
-                          <div class="reject-reason" title={t.rejection_reason}>
-                            <span class="reject-reason-label">Reason:</span> {t.rejection_reason}
-                          </div>
-                        )}
                       </td>
                       <td class="cell-faint">{formatDate(t.updated_at)}</td>
                       <td onClick={(e) => e.stopPropagation()}>

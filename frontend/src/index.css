@@ -131,23 +131,39 @@ button {
   gap: 8px;
 }
 
-/* The admin's rejection note, shown under a rejected template's badge. Capped
-   to a couple of lines in the cell; the full text is on the title tooltip. */
-.reject-reason {
-  margin-top: 5px;
-  max-width: 320px;
-  font-size: 0.8571rem;
-  line-height: 1.35;
-  color: var(--ink-muted);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+/* Rejected-template banner on the template detail page. Fixed brand-red palette
+   from the design spec rather than the theme tokens. */
+.template-rejected-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 11px 15px;
+  background: #fbe1de;
+  color: #c0392b;
+  border: 1px solid #f3b6ae;
+  border-radius: var(--r-md);
+  font-size: 0.9286rem;
+  font-weight: 500;
 }
 
-.reject-reason-label {
-  color: var(--danger);
-  font-weight: 500;
+.template-rejected-dot {
+  width: 8px;
+  height: 8px;
+  /* Nudge the dot down to sit on the first line rather than the box's top edge. */
+  margin-top: 0.5em;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: #c0392b;
+}
+
+/* Let a long, unbroken reason wrap instead of overflowing the banner (and
+   dragging a horizontal scrollbar onto the whole page). min-width:0 lets this
+   flex child shrink below its content width so the break can happen. */
+.template-rejected-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 /* The inline "reject reason" editor that unfolds beneath a template row. */
