@@ -5,11 +5,18 @@ import {
   createTemplateSchema,
   updateChannelContentSchema,
   normalizeTemplateKey,
+  TEMPLATE_STATUS_FILTERS,
   type Template,
   type ChannelContent,
+  type TemplateStatusFilter,
 } from '../models/template.js'
 import type { AuthEnv } from '../middleware/dashboardAuth.js'
 import { hasProjectAccess } from '../lib/access.js'
+import {
+  autoApprovedReviewFields,
+  initialReviewFields,
+  resetReviewForEdit,
+} from '../lib/templateReview.js'
 import type { Category } from '../models/category.js'
 
 export const templatesRoute = new Hono<AuthEnv>()
@@ -44,6 +51,14 @@ templatesRoute.post('/', async (c) => {
     return c.json({ error: `template_key "${parsed.data.template_key}" already exists for this project` }, 409)
   }
 
+  // An admin's own template is trusted and born approved; everyone else's starts
+  // pending, awaiting an admin's review. Either way the status/review fields are
+  // set here from the caller's role, never taken from the request body.
+  const user = c.get('user')
+  const now = new Date()
+  const reviewFields =
+    user.role === 'admin' ? autoApprovedReviewFields(user._id, now) : initialReviewFields()
+
   const template: Template = {
     project_id: new ObjectId(projectId),
     template_key: parsed.data.template_key,
@@ -53,8 +68,10 @@ templatesRoute.post('/', async (c) => {
       ...(parsed.data.channels.sms ? { sms: withVersionAndLive(parsed.data.channels.sms) } : {}),
       ...(parsed.data.channels.push ? { push: withVersionAndLive(parsed.data.channels.push) } : {}),
     },
-    created_at: new Date(),
-    updated_at: new Date(),
+    ...reviewFields,
+    created_by: user._id,
+    created_at: now,
+    updated_at: now,
   }
 
   try {
@@ -77,10 +94,30 @@ templatesRoute.get('/', async (c) => {
     return c.json({ error: 'You do not have access to this project' }, 403)
   }
 
+  const user = c.get('user')
+  const query: Record<string, unknown> = { project_id: new ObjectId(projectId) }
+
+  if (user.role === 'admin') {
+    // Admins manage every template in the project and may narrow by review
+    // status (?status=pending|approved|rejected). Absent/"all" → no filter, so
+    // the management view keeps showing everything by default.
+    const raw = c.req.query('status')
+    if (raw && raw !== 'all') {
+      if (!TEMPLATE_STATUS_FILTERS.includes(raw as TemplateStatusFilter)) {
+        return c.json({ error: `status must be one of: ${TEMPLATE_STATUS_FILTERS.join(', ')}` }, 400)
+      }
+      query.status = raw
+    }
+  } else {
+    // A non-admin only ever sees the templates they themselves created.
+    query.created_by = user._id
+  }
+
   const db = getDb()
   const templates = await db
     .collection<Template>('templates')
-    .find({ project_id: new ObjectId(projectId) })
+    .find(query)
+    .sort({ updated_at: -1 })
     .toArray()
 
   return c.json(templates)
@@ -145,12 +182,21 @@ templatesRoute.patch('/:templateKey/:channel', async (c) => {
     live: true,
   }
 
+  // Any content change invalidates a prior review: an approved or rejected
+  // template drops back to "pending" and its audit fields clear. Already-pending
+  // templates are left as they are (resetReviewForEdit returns null).
+  const reviewReset = resetReviewForEdit(template.status)
+
   await db.collection<Template>('templates').updateOne(
     { project_id: new ObjectId(projectId), template_key: templateKey },
-    { $set: { [`channels.${channel}`]: updatedChannel, updated_at: new Date() } }
+    { $set: { [`channels.${channel}`]: updatedChannel, updated_at: new Date(), ...(reviewReset ?? {}) } }
   )
 
-  return c.json({ ...template, channels: { ...template.channels, [channel]: updatedChannel } })
+  return c.json({
+    ...template,
+    channels: { ...template.channels, [channel]: updatedChannel },
+    ...(reviewReset ?? {}),
+  })
 })
 
 // Delete a template. Cascades: pulls it out of every category's `templates`

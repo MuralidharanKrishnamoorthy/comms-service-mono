@@ -119,6 +119,103 @@ button {
   border-color: var(--border-strong);
 }
 
+.btn-danger:hover {
+  background: var(--danger-soft);
+  border-color: var(--danger);
+}
+
+/* ---------- Row actions (Templates approve/reject) ---------- */
+.row-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* The admin's rejection note, shown under a rejected template's badge. Capped
+   to a couple of lines in the cell; the full text is on the title tooltip. */
+.reject-reason {
+  margin-top: 5px;
+  max-width: 320px;
+  font-size: 0.8571rem;
+  line-height: 1.35;
+  color: var(--ink-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.reject-reason-label {
+  color: var(--danger);
+  font-weight: 500;
+}
+
+/* The inline "reject reason" editor that unfolds beneath a template row. */
+.reject-inline {
+  background: var(--surface-alt);
+}
+
+.reject-inline-inner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 2px;
+}
+
+.reject-inline-inner input[type='text'] {
+  flex: 1;
+}
+
+.reject-inline-label {
+  font-size: 0.8571rem;
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+
+/* ---------- Toast ---------- */
+.toast-viewport {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.toast {
+  min-width: 220px;
+  max-width: 360px;
+  padding: 11px 15px;
+  border-radius: var(--r-sm);
+  background: var(--sidebar-bg);
+  color: #fff;
+  font-size: 0.9286rem;
+  font-weight: 500;
+  box-shadow: 0 8px 28px rgba(21, 24, 31, 0.24);
+  border-left: 3px solid var(--accent);
+  animation: toast-in 0.14s ease-out;
+}
+
+.toast-success {
+  border-left-color: var(--success);
+}
+
+.toast-error {
+  border-left-color: var(--danger);
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 /* ---------- Forms ---------- */
 label {
   display: block;

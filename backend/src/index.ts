@@ -5,6 +5,7 @@ import { cors } from 'hono/cors'
 import { connectDb } from './db.js'
 import { projectsRoute } from './routes/projects.js'
 import { templatesRoute } from './routes/templates.js'
+import { templateReviewRoute } from './routes/templateReview.js'
 import { categoriesRoute } from './routes/categories.js'
 import { messageLogsRoute } from './routes/messageLogs.js'
 import { sendRoute } from './routes/send.js'
@@ -17,6 +18,7 @@ import { apiKeysRoute } from './routes/apiKeys.js'
 import { dashboardAuth } from './middleware/dashboardAuth.js'
 import { seedAdmin } from './lib/seedAdmin.js'
 import { migrateApiKeys } from './lib/migrateApiKeys.js'
+import { migrateTemplateStatus } from './lib/migrateTemplateStatus.js'
 import { startRetrySweep } from './jobs/retrySweep.js'
 
 const app = new Hono()
@@ -44,10 +46,14 @@ app.use('/categories/*', dashboardAuth)
 
 app.use('/uploads', dashboardAuth)
 
+app.use('/templates', dashboardAuth)
+app.use('/templates/*', dashboardAuth)
+
 app.route('/projects/:projectId/members', membersRoute)
 app.route('/projects/:projectId/api-keys', apiKeysRoute)
 app.route('/projects', projectsRoute)
 app.route('/projects/:projectId/templates', templatesRoute)
+app.route('/templates', templateReviewRoute)
 app.route('/categories', categoriesRoute)
 app.route('/projects/:projectId/logs', messageLogsRoute)
 app.route('/users', usersRoute)
@@ -61,6 +67,7 @@ async function main() {
   await connectDb()
   await seedAdmin()
   await migrateApiKeys()
+  await migrateTemplateStatus()
   startRetrySweep()
 
   serve({

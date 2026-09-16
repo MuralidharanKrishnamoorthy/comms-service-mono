@@ -803,6 +803,21 @@
   background: var(--accent-soft);
 }
 
+/* A template that can't be grouped yet (not approved). Shown so the picker is
+   complete, but greyed and unclickable; its reason rides in the hint slot. */
+.ms-option-disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.ms-option-disabled:hover {
+  background: transparent;
+}
+
+.ms-option-disabled .dropdown-option-hint {
+  color: var(--danger);
+}
+
 /* Secondary text in an option row — a template's key beside its name. Pushed
    to the trailing edge inside the flex .ms-option; in the block-level
    single-select .dropdown-option it simply trails the label. Never wraps, so a

@@ -22,6 +22,10 @@ async function ensureIndexes(database: Db): Promise<void> {
   }
 
   await database.collection('templates').createIndex({ project_id: 1, template_key: 1 }, { unique: true })
+  // Serves the admin templates list when narrowed by review status, and each
+  // creator's "my templates" list (find by created_by within a project).
+  await database.collection('templates').createIndex({ project_id: 1, status: 1 })
+  await database.collection('templates').createIndex({ project_id: 1, created_by: 1 })
   await database.collection('message_logs').createIndex({ project_id: 1, created_at: -1 })
   await database.collection('message_logs').createIndex({ status: 1, next_retry_at: 1 })
   await database.collection('message_logs').createIndex({ provider_message_id: 1 })
