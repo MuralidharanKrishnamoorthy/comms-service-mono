@@ -106,7 +106,11 @@ export async function uploadImage(file: File): Promise<{ url: string }> {
 
   let res: Response
   try {
-    res = await fetch(`${API_BASE}/uploads`, { method: 'POST', body: form })
+    res = await fetch(`${API_BASE}/uploads`, {
+      method: 'POST',
+      body: form,
+      credentials: 'include',
+    })
   } catch {
     throw new ApiError(`Can't reach the API at ${API_BASE}`, { isNetwork: true })
   }
@@ -120,6 +124,9 @@ export async function uploadImage(file: File): Promise<{ url: string }> {
   }
 
   if (!res.ok) {
+    if (res.status === 401) {
+      onUnauthorized?.()
+    }
     const bodyObj = parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : {}
     const message = (typeof bodyObj.error === 'string' && bodyObj.error) || `Upload failed (${res.status})`
     throw new ApiError(message, { status: res.status })
