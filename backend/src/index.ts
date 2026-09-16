@@ -44,7 +44,6 @@ app.use('/categories', dashboardAuth)
 app.use('/categories/*', dashboardAuth)
 
 app.use('/uploads', dashboardAuth)
-app.use('/uploads/*', dashboardAuth)
 app.use('/uploads', bodyLimit({ maxSize: MAX_UPLOAD_BYTES }))
 
 app.route('/projects/:projectId/members', membersRoute)
@@ -62,7 +61,6 @@ app.use(
     rewriteRequestPath: (p) => p.replace(/^\/uploads/, ''),
     onFound: (_path, c) => {
       c.header('X-Content-Type-Options', 'nosniff')
-      c.header('Content-Disposition', 'attachment')
       c.header('Content-Security-Policy', "default-src 'none'; sandbox")
     },
   })
