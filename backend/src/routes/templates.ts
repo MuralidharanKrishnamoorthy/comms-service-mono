@@ -96,23 +96,21 @@ templatesRoute.post('/', async (c) => {
 templatesRoute.get('/', async (c) => {
   const projectId = c.req.param('projectId')!
 
-  const user = c.get('user')
   const query: Record<string, unknown> = { project_id: new ObjectId(projectId) }
 
-  if (user.role === 'admin') {
-    // Admins manage every template in the project and may narrow by review
-    // status (?status=pending|approved|rejected). Absent/"all" → no filter, so
-    // the management view keeps showing everything by default.
-    const raw = c.req.query('status')
-    if (raw && raw !== 'all') {
-      if (!TEMPLATE_STATUS_FILTERS.includes(raw as TemplateStatusFilter)) {
-        return c.json({ error: `status must be one of: ${TEMPLATE_STATUS_FILTERS.join(', ')}` }, 400)
-      }
-      query.status = raw
+  // Templates belong to the project, not to whoever typed them: everyone on the
+  // project sees the same list, the same way they see each other's categories.
+  // Membership is already enforced by the middleware above, and `created_by` is
+  // kept for attribution and for the review flow rather than for visibility.
+  //
+  // Optionally narrowed by review status (?status=pending|approved|rejected);
+  // absent or "all" means no filter.
+  const raw = c.req.query('status')
+  if (raw && raw !== 'all') {
+    if (!TEMPLATE_STATUS_FILTERS.includes(raw as TemplateStatusFilter)) {
+      return c.json({ error: `status must be one of: ${TEMPLATE_STATUS_FILTERS.join(', ')}` }, 400)
     }
-  } else {
-    // A non-admin only ever sees the templates they themselves created.
-    query.created_by = user._id
+    query.status = raw
   }
 
   const db = getDb()
