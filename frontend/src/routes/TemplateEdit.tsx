@@ -13,6 +13,8 @@ const CHANNEL_LABELS: Record<Channel, string> = { email: 'Email', sms: 'SMS', pu
 
 export function TemplateEdit({ templateKey }: { path?: string; templateKey?: string }) {
   const { selectedProject, projectsLoading } = useStore()
+  const { user } = useAuth()
+  const isAdmin = user?.role === 'admin'
 
   const back = returnTarget(window.location.search, {
     href: '/templates',
@@ -73,6 +75,7 @@ export function TemplateEdit({ templateKey }: { path?: string; templateKey?: str
   }, [selectedProject, templateKey])
 
   const channelKeys = useMemo(() => (template ? enabledChannels(template.channels) : []), [template])
+  const locked = template?.status === 'rejected'
 
   if (projectsLoading) {
     return (
