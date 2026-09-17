@@ -351,12 +351,31 @@ export function ApiBanner({ base }: { base: string }) {
 // ---------- Toast ----------
 // A single transient confirmation, pinned bottom-right. Presentational only —
 // the owner holds the message in state and clears it on a timer.
+export type ToastTone = 'success' | 'error'
+
+export function useToast(durationMs = 2800) {
+  const [toast, setToast] = useState<{ message: string; tone: ToastTone } | null>(null)
+  const timer = useRef<number | null>(null)
+
+  useEffect(() => () => {
+    if (timer.current) clearTimeout(timer.current)
+  }, [])
+
+  const showToast = (message: string, tone: ToastTone = 'success') => {
+    if (timer.current) clearTimeout(timer.current)
+    setToast({ message, tone })
+    timer.current = window.setTimeout(() => setToast(null), durationMs)
+  }
+
+  return { toast, showToast }
+}
+
 export function Toast({
   message,
   tone = 'success',
 }: {
   message: string
-  tone?: 'success' | 'error'
+  tone?: ToastTone
 }) {
   return (
     <div class="toast-viewport">

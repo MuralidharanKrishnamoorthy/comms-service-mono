@@ -6,7 +6,7 @@ import { ApiError, API_BASE, getTemplate, updateChannel } from '../api'
 import type { Channel, Template } from '../types'
 import { ChannelFields, variablesFor, type ChannelValues } from '../components/ChannelFields'
 import { TemplatePreview } from '../components/TemplatePreview'
-import { ApiBanner, BackLink, Breadcrumbs, CardHead, PageHeader } from '../components/ui'
+import { ApiBanner, BackLink, Breadcrumbs, CardHead, PageHeader, Toast, useToast } from '../components/ui'
 import { enabledChannels, formatDate, returnTarget } from '../util'
 
 const CHANNEL_LABELS: Record<Channel, string> = { email: 'Email', sms: 'SMS', push: 'Push' }
@@ -29,7 +29,7 @@ export function TemplateEdit({ templateKey }: { path?: string; templateKey?: str
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
   const [banner, setBanner] = useState<string | null>(null)
-  const [savedFlash, setSavedFlash] = useState(false)
+  const { toast, showToast } = useToast()
   // Preview-only stand-ins for the {{variables}}. Never submitted, never saved.
   // Held per channel: each channel is sent on its own, with its own variables,
   // so email's {{variable_1}} and the SMS's are different things.
@@ -39,6 +39,15 @@ export function TemplateEdit({ templateKey }: { path?: string; templateKey?: str
 
   const setSample = (ch: Channel) => (name: string, value: string) =>
     setSampleValues((s) => ({ ...s, [ch]: { ...(s[ch] ?? {}), [name]: value } }))
+
+  const contentFrom = (t: Template): Partial<Record<Channel, ChannelValues>> => {
+    const next: Partial<Record<Channel, ChannelValues>> = {}
+    for (const ch of enabledChannels(t.channels)) {
+      const c = t.channels[ch]!
+      next[ch] = { subject: c.subject, html_body: c.html_body, title: c.title, body: c.body }
+    }
+    return next
+  }
 
   useEffect(() => {
     if (!selectedProject || !templateKey) {
@@ -52,12 +61,7 @@ export function TemplateEdit({ templateKey }: { path?: string; templateKey?: str
       .then((t) => {
         if (cancelled) return
         setTemplate(t)
-        const initial: Partial<Record<Channel, ChannelValues>> = {}
-        for (const ch of enabledChannels(t.channels)) {
-          const c = t.channels[ch]!
-          initial[ch] = { subject: c.subject, html_body: c.html_body, title: c.title, body: c.body }
-        }
-        setContent(initial)
+        setContent(contentFrom(t))
         const first = enabledChannels(t.channels)[0] ?? null
         setActiveTab(first)
       })
@@ -76,6 +80,18 @@ export function TemplateEdit({ templateKey }: { path?: string; templateKey?: str
 
   const channelKeys = useMemo(() => (template ? enabledChannels(template.channels) : []), [template])
   const locked = template?.status === 'rejected'
+
+  const dirtyChannels = channelKeys.filter((ch) => {
+    const saved = template?.channels[ch]
+    const current = content[ch]
+    if (!saved || !current) return false
+    return (
+      (saved.subject ?? '') !== (current.subject ?? '') ||
+      (saved.html_body ?? '') !== (current.html_body ?? '') ||
+      (saved.title ?? '') !== (current.title ?? '') ||
+      (saved.body ?? '') !== (current.body ?? '')
+    )
+  })
 
   if (projectsLoading) {
     return (
@@ -98,7 +114,7 @@ export function TemplateEdit({ templateKey }: { path?: string; templateKey?: str
   const patch = (ch: Channel, p: ChannelValues) =>
     setContent((c) => ({ ...c, [ch]: { ...c[ch], ...p } }))
 
-  const validateChannel = (ch: Channel): boolean => {
+  const errorsFor = (ch: Channel): Record<string, string> => {
     const v = content[ch] ?? {}
     const e: Record<string, string> = {}
     if (ch === 'email') {
@@ -109,48 +125,79 @@ export function TemplateEdit({ templateKey }: { path?: string; templateKey?: str
     } else {
       if (!v.body?.trim()) e.body = 'Body is required for push.'
     }
-    setErrors(e)
-    return Object.keys(e).length === 0
+    return e
   }
 
-  const save = async (ch: Channel) => {
-    if (!template) return
-    setBanner(null)
-    setSavedFlash(false)
-    if (!validateChannel(ch)) return
+  const bodyFor = (ch: Channel): Record<string, unknown> => {
     const v = content[ch] ?? {}
     const variables = variablesFor(ch, v)
-    let body: Record<string, unknown>
-    if (ch === 'email') body = { subject: v.subject ?? '', html_body: v.html_body ?? '', variables }
-    else if (ch === 'sms') body = { body: v.body ?? '', variables }
-    else body = { title: v.title ?? '', body: v.body ?? '', variables }
+    if (ch === 'email') return { subject: v.subject ?? '', html_body: v.html_body ?? '', variables }
+    if (ch === 'sms') return { body: v.body ?? '', variables }
+    return { title: v.title ?? '', body: v.body ?? '', variables }
+  }
+
+  const save = async () => {
+    if (!template || dirtyChannels.length === 0) return
+    setBanner(null)
+
+    for (const ch of dirtyChannels) {
+      const found = errorsFor(ch)
+      if (Object.keys(found).length > 0) {
+        setActiveTab(ch)
+        setErrors(found)
+        return
+      }
+    }
+    setErrors({})
 
     setSaving(true)
+    const pending = [...dirtyChannels]
+    let done = 0
+
     try {
-      const updated = await updateChannel(selectedProject._id, template.template_key, ch, body)
-      setTemplate(updated)
-      setSavedFlash(true)
-      setTimeout(() => setSavedFlash(false), 2500)
+      let latest = template
+      for (const ch of pending) {
+        latest = await updateChannel(selectedProject._id, template.template_key, ch, bodyFor(ch))
+        done += 1
+      }
+      setTemplate(latest)
+      setContent(contentFrom(latest))
+      showToast(
+        done === 1
+          ? `${CHANNEL_LABELS[pending[0]]} content saved`
+          : `${done} channels saved`
+      )
     } catch (err) {
+      const failed = pending[done]
+      const unsaved = pending.slice(done)
+
       if (err instanceof ApiError) {
         if (err.isNetwork) setBanner(`Can't reach the API at ${API_BASE} — is the backend running?`)
-        else if (err.status === 409 || err.status === 403) {
-          // The template was locked (e.g. rejected) between load and save. Trust
-          // the backend, show its message, and re-lock the UI by re-fetching.
-          setBanner(err.message)
-          getTemplate(selectedProject._id, template.template_key)
-            .then((t) => setTemplate(t))
-            .catch(() => {})
-        } else if (err.status === 400) {
+        else if (err.status === 400) {
           const fe = err.details?.fieldErrors
           if (fe) {
             const mapped: Record<string, string> = {}
             for (const [k, msgs] of Object.entries(fe)) if (msgs?.[0]) mapped[k] = msgs[0]
             setErrors(mapped)
           }
-          setBanner(err.message)
-        } else setBanner(err.message)
+          setActiveTab(failed)
+          setBanner(`${CHANNEL_LABELS[failed]}: ${err.message}`)
+        } else setBanner(`${CHANNEL_LABELS[failed]}: ${err.message}`)
       } else setBanner('Something went wrong.')
+
+      if (done > 0 || (err instanceof ApiError && (err.status === 409 || err.status === 403))) {
+        try {
+          const fresh = await getTemplate(selectedProject._id, template.template_key)
+          setTemplate(fresh)
+          setContent((prev) => {
+            const next = contentFrom(fresh)
+            for (const ch of unsaved) if (prev[ch]) next[ch] = prev[ch]
+            return next
+          })
+        } catch {
+          /* leave the page as it stands */
+        }
+      }
     } finally {
       setSaving(false)
     }
@@ -214,8 +261,24 @@ export function TemplateEdit({ templateKey }: { path?: string; templateKey?: str
                 {template.name}
                 <span class="chip">{template.template_key}</span>
               </h1>
-              <p class="page-subtitle">Edit channel content</p>
+              <p class="page-subtitle">
+                {dirtyChannels.length === 0
+                  ? 'Edit channel content'
+                  : `Unsaved changes in ${dirtyChannels.map((ch) => CHANNEL_LABELS[ch]).join(', ')}`}
+              </p>
             </div>
+            {!locked && (
+              <div class="page-actions">
+                <button
+                  type="button"
+                  class="btn btn-primary"
+                  disabled={saving || dirtyChannels.length === 0}
+                  onClick={save}
+                >
+                  {saving ? 'Saving…' : 'Save changes'}
+                </button>
+              </div>
+            )}
           </div>
 
           <div class="tpl-grid">
@@ -254,7 +317,6 @@ export function TemplateEdit({ templateKey }: { path?: string; templateKey?: str
                         setActiveTab(ch)
                         setErrors({})
                         setBanner(null)
-                        setSavedFlash(false)
                       }}
                     >
                       {CHANNEL_LABELS[ch]}
@@ -287,23 +349,6 @@ export function TemplateEdit({ templateKey }: { path?: string; templateKey?: str
                 )}
               </div>
 
-              {!locked && activeTab && template.channels[activeTab] && (
-                <div class="form-actions" style={{ marginTop: 0 }}>
-                  <button
-                    type="button"
-                    class="btn btn-primary"
-                    disabled={saving}
-                    onClick={() => save(activeTab)}
-                  >
-                    {saving ? 'Saving…' : 'Save changes'}
-                  </button>
-                  {savedFlash && (
-                    <span class="copied-flash">
-                      ✓ Saved — now v{template.channels[activeTab]!.version}
-                    </span>
-                  )}
-                </div>
-              )}
             </div>
 
             <aside class="tpl-preview">
@@ -318,6 +363,8 @@ export function TemplateEdit({ templateKey }: { path?: string; templateKey?: str
           </div>
         </>
       )}
+
+      {toast && <Toast message={toast.message} tone={toast.tone} />}
     </div>
   )
 }

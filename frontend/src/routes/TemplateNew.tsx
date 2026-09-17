@@ -7,13 +7,14 @@ import { CHANNELS } from '../util'
 import { clearDraft, readDraft, writeDraft } from '../draft'
 import { ChannelFields, variablesFor, type ChannelValues } from '../components/ChannelFields'
 import { TemplatePreview } from '../components/TemplatePreview'
-import { BackLink, Breadcrumbs, CardHead, Modal, PageHeader } from '../components/ui'
+import { BackLink, Breadcrumbs, CardHead, Dropdown, Modal, PageHeader } from '../components/ui'
 
 const CHANNEL_LABELS: Record<Channel, string> = { email: 'Email', sms: 'SMS', push: 'Push' }
 
 const DRAFT_KEY = 'notifyr:new-template'
 
 interface TemplateDraft {
+  projectId: string
   templateKey: string
   name: string
   enabled: Record<Channel, boolean>
@@ -35,6 +36,7 @@ function restoreDraft(): TemplateDraft | null {
   }
 
   return {
+    projectId: typeof saved.projectId === 'string' ? saved.projectId : '',
     templateKey: typeof saved.templateKey === 'string' ? saved.templateKey : '',
     name: typeof saved.name === 'string' ? saved.name : '',
     enabled,
@@ -46,7 +48,7 @@ function restoreDraft(): TemplateDraft | null {
 }
 
 export function TemplateNew(_props: { path?: string }) {
-  const { selectedProject, projectsLoading } = useStore()
+  const { projects, setSelectedProjectId, projectsLoading } = useStore()
   const draft = useMemo(() => {
     try {
       return restoreDraft()
@@ -56,6 +58,7 @@ export function TemplateNew(_props: { path?: string }) {
     }
   }, [])
 
+  const [projectId, setProjectId] = useState(draft?.projectId ?? '')
   const [templateKey, setTemplateKey] = useState(draft?.templateKey ?? '')
   const [name, setName] = useState(draft?.name ?? '')
   // Nothing pre-selected: which channels a template supports is a real
@@ -75,7 +78,7 @@ export function TemplateNew(_props: { path?: string }) {
   )
 
   const hasContent = Boolean(
-    templateKey || name.trim() || CHANNELS.some((ch) => enabled[ch])
+    projectId || templateKey || name.trim() || CHANNELS.some((ch) => enabled[ch])
   )
 
   useEffect(() => () => clearDraft(DRAFT_KEY), [])
@@ -110,6 +113,7 @@ export function TemplateNew(_props: { path?: string }) {
     }
 
     writeDraft(DRAFT_KEY, {
+      projectId,
       templateKey,
       name,
       enabled,
@@ -117,7 +121,7 @@ export function TemplateNew(_props: { path?: string }) {
       activeTab,
       sampleValues,
     } satisfies TemplateDraft)
-  }, [hasContent, templateKey, name, enabled, content, activeTab, sampleValues])
+  }, [hasContent, projectId, templateKey, name, enabled, content, activeTab, sampleValues])
 
   const setSample = (ch: Channel) => (name: string, value: string) =>
     setSampleValues((s) => ({ ...s, [ch]: { ...(s[ch] ?? {}), [name]: value } }))
@@ -157,11 +161,11 @@ export function TemplateNew(_props: { path?: string }) {
   const [submitting, setSubmitting] = useState(false)
   const [pendingExit, setPendingExit] = useState<string | null>(null)
 
-  if (!projectsLoading && !selectedProject) {
+  if (!projectsLoading && projects.length === 0) {
     return (
       <div>
         <PageHeader title="New template" />
-        <div class="empty">Select a project in the top bar first.</div>
+        <div class="empty">No projects yet — create one before adding templates.</div>
       </div>
     )
   }
@@ -177,6 +181,8 @@ export function TemplateNew(_props: { path?: string }) {
     const te: Record<string, string> = {}
     const ce: Record<Channel, Record<string, string>> = { email: {}, sms: {}, push: {} }
     let banner: string | null = null
+
+    if (!projectId) te.project = 'Choose the project this template belongs to.'
 
     if (!templateKey) te.template_key = 'Template key is required.'
     else if (templateKey.length > 80) te.template_key = 'Template key must be 80 characters or fewer.'
@@ -243,13 +249,13 @@ export function TemplateNew(_props: { path?: string }) {
   }
 
   const save = async () => {
-    if (!selectedProject) return
     setBanner(null)
     if (!validate()) return
     setSubmitting(true)
     try {
-      const created = await createTemplate(selectedProject._id, assembleBody())
+      const created = await createTemplate(projectId, assembleBody())
       clearDraft(DRAFT_KEY)
+      setSelectedProjectId(projectId)
       route(`/templates/${created.template_key}`)
     } catch (err) {
       if (err instanceof ApiError) {
@@ -303,22 +309,49 @@ export function TemplateNew(_props: { path?: string }) {
   return (
     <div>
       <BackLink href="/templates" label="Back to templates" onClick={() => leave('/templates')} />
-      <Breadcrumbs trail={['Templates', selectedProject?.name ?? '…']} current="New template" />
+      <Breadcrumbs
+        trail={['Templates', projects.find((p) => p._id === projectId)?.name ?? 'No project']}
+        current="New template"
+      />
 
       <div class="page-head">
         <div>
-          <h1 class="page-title page-title-row">
-            New template
-            {selectedProject && <span class="chip">{selectedProject.name}</span>}
-          </h1>
+          <h1 class="page-title">New template</h1>
+        </div>
+        <div class="page-actions">
+          <button
+            type="submit"
+            form="template-form"
+            class="btn btn-primary"
+            disabled={submitting}
+          >
+            {submitting ? 'Creating…' : 'Create template'}
+          </button>
         </div>
       </div>
 
       {banner && <div class="banner-error">{banner}</div>}
 
-      <form onSubmit={submit}>
+      <form id="template-form" onSubmit={submit}>
         <div class="tpl-grid">
           <div class="tpl-form">
+            <div class="card">
+              <CardHead title="Project" required />
+              <div class="field" style={{ marginBottom: 0 }}>
+                <Dropdown
+                  value={projectId}
+                  onChange={(value) => {
+                    setProjectId(value)
+                    if (topErrors.project) setTopErrors((e) => ({ ...e, project: undefined }))
+                  }}
+                  placeholder="Choose a project"
+                  class={topErrors.project ? 'invalid' : ''}
+                  options={projects.map((p) => ({ value: p._id, label: p.name }))}
+                />
+                {topErrors.project && <div class="field-error">{topErrors.project}</div>}
+              </div>
+            </div>
+
             <div class="card">
               <CardHead title="Template key" required />
               <div class="field" style={{ marginBottom: 0 }}>
@@ -418,20 +451,6 @@ export function TemplateNew(_props: { path?: string }) {
                   {CHANNEL_LABELS[activeTab]} is disabled. Tick its card above to add content.
                 </div>
               )}
-            </div>
-
-            <div class="form-actions" style={{ marginTop: 0 }}>
-              <button type="submit" class="btn btn-primary" disabled={submitting || !selectedProject}>
-                {submitting ? 'Creating…' : 'Create template'}
-              </button>
-              <button
-                type="button"
-                class="btn"
-                disabled={submitting}
-                onClick={() => leave('/templates')}
-              >
-                Cancel
-              </button>
             </div>
           </div>
 

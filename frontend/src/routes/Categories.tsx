@@ -258,6 +258,12 @@ function EditCategoryModal({
   const [banner, setBanner] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
+  const groupable = candidates.filter(
+    (t) =>
+      t.status === 'approved' ||
+      selection.some((s) => s.project_id === projectId && s.template_key === t.template_key)
+  )
+
   // Seed the selection from what's attached right now, across all projects.
   useEffect(() => {
     let cancelled = false
@@ -410,6 +416,12 @@ function EditCategoryModal({
               <p class="subtle" style={{ margin: 0 }}>Loading templates…</p>
             ) : candidates.length === 0 ? (
               <p class="subtle" style={{ margin: 0 }}>This project has no templates yet.</p>
+            ) : groupable.length === 0 ? (
+              <div class="banner-warning">
+                None of this project's templates are approved yet, and only approved
+                templates can be grouped into a category. Get one approved on the Templates
+                page, then come back.
+              </div>
             ) : (
               <MultiSelect
                 values={selection
@@ -417,21 +429,11 @@ function EditCategoryModal({
                   .map((s) => s.template_key)}
                 onChange={setPicksForProject}
                 placeholder="Choose templates"
-                options={candidates.map((t) => {
-                  const alreadyAttached = selection.some(
-                    (s) => s.project_id === projectId && s.template_key === t.template_key
-                  )
-                  return {
-                    value: t.template_key,
-                    label: t.name,
-                    hint: t.template_key,
-                    // Only approved templates may be grouped. An already-attached
-                    // template that has since dropped to pending stays removable,
-                    // so it isn't disabled — it just can't be re-added once off.
-                    disabled: t.status !== 'approved' && !alreadyAttached,
-                    disabledReason: 'Not yet approved',
-                  }
-                })}
+                options={groupable.map((t) => ({
+                  value: t.template_key,
+                  label: t.name,
+                  hint: t.template_key,
+                }))}
               />
             )}
           </div>

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'preact/hooks'
+import { useEffect, useState } from 'preact/hooks'
 import { Fragment } from 'preact'
 import { route } from 'preact-router'
 import { useStore } from '../store'
@@ -15,6 +15,7 @@ import {
   ReturnIcon,
   StatusBadge,
   Toast,
+  useToast,
 } from '../components/ui'
 import { enabledChannels, formatDate } from '../util'
 
@@ -31,7 +32,9 @@ const STATUS_OPTIONS: { value: TemplateStatusFilter; label: string }[] = [
 type InlineMode = 'reject' | 'return'
 
 export function Templates(_props: { path?: string }) {
-  const { projects, selectedProjectId, selectedProject, setSelectedProjectId } = useStore()
+  const { projects, setSelectedProjectId } = useStore()
+  const [projectFilter, setProjectFilter] = useState('')
+  const projectName = (id: string) => projects.find((p) => p._id === id)?.name ?? '—'
   const { user } = useAuth()
   const isAdmin = user?.role === 'admin'
 
@@ -59,33 +62,28 @@ export function Templates(_props: { path?: string }) {
     setInlineError(null)
   }
 
-  const [toast, setToast] = useState<{ message: string; tone: 'success' | 'error' } | null>(null)
-  const toastTimer = useRef<number | null>(null)
-  function showToast(message: string, tone: 'success' | 'error' = 'success') {
-    if (toastTimer.current) clearTimeout(toastTimer.current)
-    setToast({ message, tone })
-    toastTimer.current = window.setTimeout(() => setToast(null), 2800)
-  }
-  useEffect(() => () => {
-    if (toastTimer.current) clearTimeout(toastTimer.current)
-  }, [])
+  const { toast, showToast } = useToast()
 
   useEffect(() => {
-    if (!selectedProject) {
+    const targets = projectFilter ? [projectFilter] : projects.map((p) => p._id)
+    if (targets.length === 0) {
+      setTemplates([])
       setLoading(false)
       return
     }
-    const pid = selectedProject._id
+
     let cancelled = false
     setLoading(true)
     setUnreachable(false)
     // Close any open inline editor when the project changes underneath us.
     setInline(null)
 
-    listTemplates(pid)
-      .then((tpls) => {
+    Promise.all(targets.map((pid) => listTemplates(pid)))
+      .then((batches) => {
         if (cancelled) return
-        setTemplates(tpls)
+        setTemplates(
+          batches.flat().sort((a, b) => (a.updated_at < b.updated_at ? 1 : -1))
+        )
       })
       .catch((err) => {
         if (cancelled) return
@@ -99,7 +97,7 @@ export function Templates(_props: { path?: string }) {
     return () => {
       cancelled = true
     }
-  }, [selectedProject])
+  }, [projectFilter, projects])
 
   // The list is already loaded, so the Status filter narrows client-side — no
   // extra round-trip. (The list endpoint also accepts ?status for admins.)
@@ -108,7 +106,8 @@ export function Templates(_props: { path?: string }) {
 
   // The Actions column (approve/reject/return) is admin-only — a non-admin has no
   // review actions, so the whole column is dropped rather than shown empty.
-  const colCount = isAdmin ? 5 : 4
+  const showProject = !projectFilter
+  const colCount = (isAdmin ? 5 : 4) + (showProject ? 1 : 0)
 
   function applyUpdate(updated: Template) {
     setTemplates((prev) => prev.map((t) => (t._id === updated._id ? { ...t, ...updated } : t)))
@@ -152,11 +151,11 @@ export function Templates(_props: { path?: string }) {
     }
   }
 
-  if (!selectedProject) {
+  if (projects.length === 0) {
     return (
       <div>
         <PageHeader title="Templates" />
-        <div class="empty">Select a project in the top bar to view its templates.</div>
+        <div class="empty">No projects yet — create one before adding templates.</div>
       </div>
     )
   }
@@ -165,7 +164,11 @@ export function Templates(_props: { path?: string }) {
     <div>
       <PageHeader
         title="Templates"
-        subtitle={`Message templates for ${selectedProject.name}.`}
+        subtitle={
+          projectFilter
+            ? `Message templates for ${projectName(projectFilter)}.`
+            : 'Message templates across all your projects.'
+        }
         actions={
           <button class="btn btn-primary" onClick={() => route('/templates/new')}>
             + New template
@@ -180,11 +183,15 @@ export function Templates(_props: { path?: string }) {
           <label>Project</label>
           <Dropdown
             class="project-select"
-            disabled={projects.length === 0}
-            placeholder="No projects yet"
-            value={selectedProjectId ?? ''}
-            onChange={setSelectedProjectId}
-            options={projects.map((p) => ({ value: p._id, label: p.name }))}
+            value={projectFilter}
+            onChange={(value) => {
+              setProjectFilter(value)
+              if (value) setSelectedProjectId(value)
+            }}
+            options={[
+              { value: '', label: 'All projects' },
+              ...projects.map((p) => ({ value: p._id, label: p.name })),
+            ]}
           />
         </div>
         <div class="field toolbar-field">
@@ -202,6 +209,7 @@ export function Templates(_props: { path?: string }) {
           <thead>
             <tr>
               <th>Template</th>
+              {showProject && <th>Project</th>}
               <th>Channels</th>
               <th>Status</th>
               <th>Last updated</th>
@@ -231,11 +239,18 @@ export function Templates(_props: { path?: string }) {
                 const canReview = isAdmin && t.status === 'pending'
                 return (
                   <Fragment key={t._id}>
-                    <tr class="clickable" onClick={() => route(`/templates/${t.template_key}`)}>
+                    <tr
+                      class="clickable"
+                      onClick={() => {
+                        setSelectedProjectId(t.project_id)
+                        route(`/templates/${t.template_key}`)
+                      }}
+                    >
                       <td>
                         <div class="cell-primary">{t.name}</div>
                         <div class="cell-secondary mono">{t.template_key}</div>
                       </td>
+                      {showProject && <td class="cell-muted">{projectName(t.project_id)}</td>}
                       <td>
                         <ChannelChips channels={enabledChannels(t.channels ?? {})} />
                       </td>

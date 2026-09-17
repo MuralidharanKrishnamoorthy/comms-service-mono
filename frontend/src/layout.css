@@ -401,12 +401,6 @@
   color: var(--ink-muted);
 }
 
-.copied-flash {
-  color: var(--success);
-  font-size: 0.8571rem;
-  font-weight: 600;
-}
-
 .back-link {
   display: inline-flex;
   align-items: center;
