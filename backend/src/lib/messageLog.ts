@@ -29,11 +29,15 @@ export async function markSent(logId: ObjectId, providerMessageId: string) {
   )
 }
 
-export async function markFailedAndScheduleRetry(logId: ObjectId, attemptsSoFar: number) {
+export async function markFailedAndScheduleRetry(
+  logId: ObjectId,
+  attemptsSoFar: number,
+  retryable = true
+) {
   const db = getDb()
   const attempts = attemptsSoFar + 1
 
-  if (attempts >= MAX_ATTEMPTS) {
+  if (!retryable || attempts >= MAX_ATTEMPTS) {
     await db.collection<MessageLog>('message_logs').updateOne(
       { _id: logId },
       { $set: { status: 'failed', attempts, updated_at: new Date() } }
