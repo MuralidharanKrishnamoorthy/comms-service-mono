@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'preact/hooks'
 import { route } from 'preact-router'
 import { useStore } from '../store'
+import { useAuth } from '../auth'
 import { ApiError, API_BASE, getTemplate, updateChannel } from '../api'
 import type { Channel, Template } from '../types'
 import { ChannelFields, variablesFor, type ChannelValues } from '../components/ChannelFields'
@@ -130,7 +131,14 @@ export function TemplateEdit({ templateKey }: { path?: string; templateKey?: str
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.isNetwork) setBanner(`Can't reach the API at ${API_BASE} — is the backend running?`)
-        else if (err.status === 400) {
+        else if (err.status === 409 || err.status === 403) {
+          // The template was locked (e.g. rejected) between load and save. Trust
+          // the backend, show its message, and re-lock the UI by re-fetching.
+          setBanner(err.message)
+          getTemplate(selectedProject._id, template.template_key)
+            .then((t) => setTemplate(t))
+            .catch(() => {})
+        } else if (err.status === 400) {
           const fe = err.details?.fieldErrors
           if (fe) {
             const mapped: Record<string, string> = {}
@@ -147,6 +155,38 @@ export function TemplateEdit({ templateKey }: { path?: string; templateKey?: str
 
   return (
     <div>
+      {!isAdmin && template?.status === 'rejected' && (
+        <div class="template-rejected-banner" role="alert">
+          <span class="template-rejected-dot" aria-hidden="true" />
+          <span class="template-rejected-text">
+            Rejected by admin.{' '}
+            {template.rejection_reason
+              ? `Reason: ${template.rejection_reason}.`
+              : 'No reason provided.'}{' '}
+            This template is locked and can't be edited.
+          </span>
+        </div>
+      )}
+
+      {!isAdmin && template?.status === 'returned' && (
+        <div class="template-returned-banner" role="alert">
+          <span class="template-returned-dot" aria-hidden="true" />
+          <span class="template-rejected-text">
+            Returned for edits by admin.{' '}
+            {template.remarks ? `Remarks: ${template.remarks}.` : 'No remarks provided.'}{' '}
+            Edit below and resubmit for approval.
+          </span>
+        </div>
+      )}
+
+      {!isAdmin && template?.status === 'pending' && (
+        <div class="template-pending-banner" role="status">
+          <span class="template-pending-dot" aria-hidden="true" />
+          <span class="template-rejected-text">
+            Pending approval — waiting for an admin to review your changes.
+          </span>
+        </div>
+      )}
 
       <BackLink href={back.href} label={back.label} onClick={() => route(back.href)} />
 
@@ -221,19 +261,30 @@ export function TemplateEdit({ templateKey }: { path?: string; templateKey?: str
 
                 {banner && <div class="banner-error">{banner}</div>}
 
+                {locked && (
+                  <div class="tpl-locked-note">
+                    🔒 Editing is disabled for rejected templates.
+                  </div>
+                )}
+
                 {activeTab && template.channels[activeTab] && (
-                  <ChannelFields
-                    channel={activeTab}
-                    values={content[activeTab] ?? {}}
-                    errors={errors}
-                    onChange={(p) => patch(activeTab, p)}
-                    sampleValues={sampleValues[activeTab] ?? {}}
-                    onSampleChange={setSample(activeTab)}
-                  />
+                  <div
+                    class={locked ? 'tpl-locked-fields' : undefined}
+                    aria-disabled={locked ? 'true' : undefined}
+                  >
+                    <ChannelFields
+                      channel={activeTab}
+                      values={content[activeTab] ?? {}}
+                      errors={errors}
+                      onChange={(p) => patch(activeTab, p)}
+                      sampleValues={sampleValues[activeTab] ?? {}}
+                      onSampleChange={setSample(activeTab)}
+                    />
+                  </div>
                 )}
               </div>
 
-              {activeTab && template.channels[activeTab] && (
+              {!locked && activeTab && template.channels[activeTab] && (
                 <div class="form-actions" style={{ marginTop: 0 }}>
                   <button
                     type="button"

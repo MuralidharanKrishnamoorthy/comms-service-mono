@@ -21,6 +21,7 @@ export async function migrateTemplateStatus(): Promise<void> {
         reviewed_by: null,
         reviewed_at: null,
         rejection_reason: null,
+        remarks: null,
       },
     }
   )

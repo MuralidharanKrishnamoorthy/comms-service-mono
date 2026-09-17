@@ -15,6 +15,7 @@ import { hasProjectAccess } from '../lib/access.js'
 import {
   autoApprovedReviewFields,
   initialReviewFields,
+  isEditLocked,
   resetReviewForEdit,
 } from '../lib/templateReview.js'
 import type { Category } from '../models/category.js'
@@ -163,6 +164,16 @@ templatesRoute.patch('/:templateKey/:channel', async (c) => {
   })
   if (!template) {
     return c.json({ error: 'Template not found' }, 404)
+  }
+
+  // A rejected template is locked — refuse before touching anything, whatever
+  // fields the request carries. The author must create a new template instead;
+  // only an admin reopen (a separate action) could move it out of "rejected".
+  if (isEditLocked(template.status)) {
+    return c.json(
+      { error: 'This template was rejected and is locked. Create a new template instead.' },
+      409
+    )
   }
 
   const existingChannel = template.channels[channel]

@@ -45,11 +45,17 @@ export const createTemplateSchema = z.object({
 export const updateChannelContentSchema = channelContentSchema.partial().refine((c) => Object.keys(c).length > 0, { message: 'At least one field must be provided to update' });
 // The approval lifecycle. A template is born "pending" (or "approved" outright
 // when an admin creates it — an admin's own work needs no second sign-off), an
-// admin moves it to "approved" or "rejected", and any content edit sends it back
-// to "pending" (see resetReviewForEdit in lib/templateReview).
-export const TEMPLATE_STATUSES = ['pending', 'approved', 'rejected'];
+// admin moves it to "approved", "rejected", or "returned" (sent back for edits
+// with required remarks), and any content edit sends it back to "pending" (see
+// resetReviewForEdit in lib/templateReview).
+export const TEMPLATE_STATUSES = ['pending', 'approved', 'rejected', 'returned'];
 // Admins filter the templates list by status; "all" means no filter.
-export const TEMPLATE_STATUS_FILTERS = ['pending', 'approved', 'rejected', 'all'];
+export const TEMPLATE_STATUS_FILTERS = ['pending', 'approved', 'rejected', 'returned', 'all'];
 export const rejectTemplateSchema = z.object({
     reason: z.string().max(2000).optional(),
+});
+// Returning a template is feedback, not a verdict: remarks explaining what needs
+// to change are required. Trimmed, so whitespace-only remarks are rejected.
+export const returnTemplateSchema = z.object({
+    remarks: z.string().trim().min(1, 'remarks is required').max(2000),
 });

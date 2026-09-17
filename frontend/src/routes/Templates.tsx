@@ -3,9 +3,19 @@ import { Fragment } from 'preact'
 import { route } from 'preact-router'
 import { useStore } from '../store'
 import { useAuth } from '../auth'
-import { ApiError, API_BASE, approveTemplate, listTemplates, rejectTemplate } from '../api'
+import { ApiError, API_BASE, approveTemplate, listTemplates, rejectTemplate, returnTemplate } from '../api'
 import type { Template, TemplateStatusFilter } from '../types'
-import { ApiBanner, ChannelChips, Dropdown, PageHeader, StatusBadge, Toast } from '../components/ui'
+import {
+  ApiBanner,
+  ChannelChips,
+  CheckIcon,
+  CrossIcon,
+  Dropdown,
+  PageHeader,
+  ReturnIcon,
+  StatusBadge,
+  Toast,
+} from '../components/ui'
 import { enabledChannels, formatDate } from '../util'
 
 const STATUS_OPTIONS: { value: TemplateStatusFilter; label: string }[] = [
@@ -13,7 +23,12 @@ const STATUS_OPTIONS: { value: TemplateStatusFilter; label: string }[] = [
   { value: 'pending', label: 'Pending' },
   { value: 'approved', label: 'Approved' },
   { value: 'rejected', label: 'Rejected' },
+  { value: 'returned', label: 'Returned' },
 ]
+
+// The inline editor under a pending row is shared by Reject (optional reason)
+// and Return (required remarks).
+type InlineMode = 'reject' | 'return'
 
 export function Templates(_props: { path?: string }) {
   const { projects, selectedProjectId, selectedProject, setSelectedProjectId } = useStore()
@@ -25,11 +40,24 @@ export function Templates(_props: { path?: string }) {
   const [unreachable, setUnreachable] = useState(false)
   const [statusFilter, setStatusFilter] = useState<TemplateStatusFilter>('all')
 
-  // Reject flow: which row's inline reason editor is open, and its draft text.
-  const [rejectingId, setRejectingId] = useState<string | null>(null)
-  const [rejectReason, setRejectReason] = useState('')
-  // The row with an approve/reject request in flight — its buttons disable.
+  // Inline editor: which row is open and in which mode (reject / return), plus
+  // its draft text and any validation error (return requires non-empty remarks).
+  const [inline, setInline] = useState<{ id: string; mode: InlineMode } | null>(null)
+  const [inlineText, setInlineText] = useState('')
+  const [inlineError, setInlineError] = useState<string | null>(null)
+  // The row with a review request in flight — its buttons disable.
   const [actioningId, setActioningId] = useState<string | null>(null)
+
+  function openInline(id: string, mode: InlineMode) {
+    setInline({ id, mode })
+    setInlineText('')
+    setInlineError(null)
+  }
+  function closeInline() {
+    setInline(null)
+    setInlineText('')
+    setInlineError(null)
+  }
 
   const [toast, setToast] = useState<{ message: string; tone: 'success' | 'error' } | null>(null)
   const toastTimer = useRef<number | null>(null)
@@ -51,8 +79,8 @@ export function Templates(_props: { path?: string }) {
     let cancelled = false
     setLoading(true)
     setUnreachable(false)
-    // Reset any open reject editor when the project changes underneath us.
-    setRejectingId(null)
+    // Close any open inline editor when the project changes underneath us.
+    setInline(null)
 
     listTemplates(pid)
       .then((tpls) => {
@@ -78,6 +106,10 @@ export function Templates(_props: { path?: string }) {
   const visible =
     statusFilter === 'all' ? templates : templates.filter((t) => t.status === statusFilter)
 
+  // The Actions column (approve/reject/return) is admin-only — a non-admin has no
+  // review actions, so the whole column is dropped rather than shown empty.
+  const colCount = isAdmin ? 5 : 4
+
   function applyUpdate(updated: Template) {
     setTemplates((prev) => prev.map((t) => (t._id === updated._id ? { ...t, ...updated } : t)))
   }
@@ -94,16 +126,27 @@ export function Templates(_props: { path?: string }) {
     }
   }
 
-  async function onConfirmReject(t: Template) {
+  async function onConfirmInline(t: Template) {
+    if (!inline) return
+    const mode = inline.mode
+    const text = inlineText.trim()
+    // Return demands remarks; block and flag if empty. Reject's reason is optional.
+    if (mode === 'return' && !text) {
+      setInlineError('Remarks are required to return a template.')
+      return
+    }
     setActioningId(t._id)
     try {
-      const reason = rejectReason.trim()
-      applyUpdate(await rejectTemplate(t._id, reason || undefined))
-      showToast(`${t.name} rejected`)
-      setRejectingId(null)
-      setRejectReason('')
+      if (mode === 'reject') {
+        applyUpdate(await rejectTemplate(t._id, text || undefined))
+        showToast(`${t.name} rejected`)
+      } else {
+        applyUpdate(await returnTemplate(t._id, text))
+        showToast(`${t.name} returned`)
+      }
+      closeInline()
     } catch {
-      showToast(`Couldn't reject ${t.name}`, 'error')
+      showToast(`Couldn't ${mode} ${t.name}`, 'error')
     } finally {
       setActioningId(null)
     }
@@ -162,21 +205,21 @@ export function Templates(_props: { path?: string }) {
               <th>Channels</th>
               <th>Status</th>
               <th>Last updated</th>
-              <th>Actions</th>
+              {isAdmin && <th>Actions</th>}
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr class="state-row">
-                <td colSpan={5}>Loading…</td>
+                <td colSpan={colCount}>Loading…</td>
               </tr>
             ) : unreachable ? (
               <tr class="state-row">
-                <td colSpan={5}>Couldn't load templates.</td>
+                <td colSpan={colCount}>Couldn't load templates.</td>
               </tr>
             ) : visible.length === 0 ? (
               <tr class="state-row">
-                <td colSpan={5}>
+                <td colSpan={colCount}>
                   {statusFilter === 'all'
                     ? 'No templates yet — click New template to create one.'
                     : `No ${statusFilter} templates.`}
@@ -199,83 +242,101 @@ export function Templates(_props: { path?: string }) {
                       <td>
                         <StatusBadge
                           status={t.status}
-                          // A non-admin sees "pending approval" — it's awaiting an
-                          // admin. The admin's own queue keeps the terse "pending".
-                          label={!isAdmin && t.status === 'pending' ? 'pending approval' : undefined}
+                          label={
+                            t.status === 'returned'
+                              ? 'Returned for edits'
+                              : // A non-admin sees "pending approval" — it's awaiting an
+                                // admin. The admin's own queue keeps the terse "pending".
+                                !isAdmin && t.status === 'pending'
+                                ? 'pending approval'
+                                : undefined
+                          }
                         />
-                        {t.status === 'rejected' && t.rejection_reason && (
-                          <div class="reject-reason" title={t.rejection_reason}>
-                            <span class="reject-reason-label">Reason:</span> {t.rejection_reason}
-                          </div>
-                        )}
                       </td>
                       <td class="cell-faint">{formatDate(t.updated_at)}</td>
+                      {isAdmin && (
                       <td onClick={(e) => e.stopPropagation()}>
                         {canReview ? (
                           <div class="row-actions">
                             <button
-                              class="btn btn-primary btn-sm"
+                              class="icon-btn icon-btn-approve"
+                              title="Approve"
+                              aria-label="Approve"
                               disabled={busy}
                               onClick={() => onApprove(t)}
                             >
-                              Approve
+                              <CheckIcon />
                             </button>
                             <button
-                              class="btn btn-danger btn-sm"
+                              class="icon-btn icon-btn-reject"
+                              title="Reject"
+                              aria-label="Reject"
                               disabled={busy}
-                              onClick={() => {
-                                setRejectingId((cur) => (cur === t._id ? cur : t._id))
-                                setRejectReason('')
-                              }}
+                              onClick={() => openInline(t._id, 'reject')}
                             >
-                              Reject
+                              <CrossIcon />
+                            </button>
+                            <button
+                              class="icon-btn icon-btn-return"
+                              title="Return with remarks"
+                              aria-label="Return with remarks"
+                              disabled={busy}
+                              onClick={() => openInline(t._id, 'return')}
+                            >
+                              <ReturnIcon />
                             </button>
                           </div>
                         ) : (
-                          <span class="cell-faint">—</span>
+                          <span class="cell-faint actions-empty">—</span>
                         )}
                       </td>
+                      )}
                     </tr>
-                    {canReview && rejectingId === t._id && (
+                    {canReview && inline?.id === t._id && (
                       <tr class="reject-inline" onClick={(e) => e.stopPropagation()}>
-                        <td colSpan={5}>
+                        <td colSpan={colCount}>
                           <div class="reject-inline-inner">
-                            <span class="reject-inline-label">Reason (optional)</span>
+                            <span class="reject-inline-label">
+                              {inline.mode === 'return'
+                                ? 'Remarks — what needs to change? (required)'
+                                : 'Reason (optional)'}
+                            </span>
                             <input
                               type="text"
                               autoFocus
-                              value={rejectReason}
-                              placeholder="Why is this being rejected?"
-                              disabled={busy}
-                              onInput={(e) =>
-                                setRejectReason((e.target as HTMLInputElement).value)
+                              value={inlineText}
+                              class={inlineError ? 'invalid' : ''}
+                              placeholder={
+                                inline.mode === 'return'
+                                  ? 'Describe what needs changing…'
+                                  : 'Why is this being rejected?'
                               }
+                              disabled={busy}
+                              onInput={(e) => {
+                                setInlineText((e.target as HTMLInputElement).value)
+                                if (inlineError) setInlineError(null)
+                              }}
                               onKeyDown={(e) => {
-                                if (e.key === 'Enter') onConfirmReject(t)
-                                if (e.key === 'Escape') {
-                                  setRejectingId(null)
-                                  setRejectReason('')
-                                }
+                                if (e.key === 'Enter') onConfirmInline(t)
+                                if (e.key === 'Escape') closeInline()
                               }}
                             />
                             <button
-                              class="btn btn-danger btn-sm"
+                              class={`btn btn-sm ${inline.mode === 'return' ? 'btn-info' : 'btn-danger'}`}
                               disabled={busy}
-                              onClick={() => onConfirmReject(t)}
+                              onClick={() => onConfirmInline(t)}
                             >
-                              Confirm reject
+                              {inline.mode === 'return' ? 'Confirm return' : 'Confirm reject'}
                             </button>
                             <button
                               class="btn btn-ghost btn-sm"
                               disabled={busy}
-                              onClick={() => {
-                                setRejectingId(null)
-                                setRejectReason('')
-                              }}
+                              onClick={closeInline}
                             >
                               Cancel
                             </button>
                           </div>
+                          {inlineError && <div class="inline-error">{inlineError}</div>}
                         </td>
                       </tr>
                     )}
