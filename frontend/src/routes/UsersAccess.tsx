@@ -12,7 +12,7 @@ import {
   type UpdateUserBody,
 } from '../api'
 import type { ManagedUser, Role } from '../types'
-import { ApiBanner, Modal, MultiSelect, PageHeader } from '../components/ui'
+import { ApiBanner, Dropdown, Modal, MultiSelect, PageHeader } from '../components/ui'
 
 const ROLE_OPTIONS: { value: Role; label: string }[] = [
   { value: 'admin', label: 'Admin' },
@@ -198,7 +198,10 @@ function UserModal({
   const [name, setName] = useState(existing?.name ?? '')
   const [email, setEmail] = useState(existing?.email ?? '')
   const [password, setPassword] = useState('')
-  const [role, setRole] = useState<Role>(existing?.role ?? 'developer')
+  // On create there is no default role — the admin must pick one ('' shows the
+  // "Please select role" placeholder and fails validation until chosen). On edit
+  // the role is always pre-filled from the existing user.
+  const [role, setRole] = useState<Role | ''>(existing?.role ?? '')
   const [status, setStatus] = useState<'active' | 'disabled'>(existing?.status ?? 'active')
   const [projectIds, setProjectIds] = useState<string[]>(existing?.project_ids ?? [])
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -207,6 +210,7 @@ function UserModal({
 
   const validate = (): boolean => {
     const e: Record<string, string> = {}
+    if (!role) e.role = 'Role is required.'
     if (!name.trim()) e.name = 'Name is required.'
     if (!email.trim()) e.email = 'Email is required.'
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) e.email = 'Enter a valid email.'
@@ -232,7 +236,7 @@ function UserModal({
           name: name.trim(),
           email: email.trim(),
           password,
-          role,
+          role: role as Role, // validate() guarantees a role was chosen
           ...(role === 'admin' ? {} : { project_ids: projectIds }),
         }
         await createUser(body)
@@ -240,7 +244,7 @@ function UserModal({
         const body: UpdateUserBody = {
           name: name.trim(),
           email: email.trim(),
-          role,
+          role: role as Role, // validate() guarantees a role was chosen
           status,
           ...(role === 'admin' ? {} : { project_ids: projectIds }),
           ...(password ? { password } : {}), // only reset if the admin typed one
@@ -312,13 +316,17 @@ function UserModal({
 
         <div class="field">
           <label>Role</label>
-          <select value={role} onChange={(e) => setRole((e.target as HTMLSelectElement).value as Role)}>
-            {ROLE_OPTIONS.map((r) => (
-              <option key={r.value} value={r.value}>
-                {r.label}
-              </option>
-            ))}
-          </select>
+          <Dropdown
+            value={role}
+            placeholder="Please select role"
+            class={errors.role ? 'invalid' : ''}
+            options={ROLE_OPTIONS.map((r) => ({ value: r.value, label: r.label }))}
+            onChange={(v) => {
+              setRole(v as Role | '')
+              setErrors((prev) => ({ ...prev, role: '' }))
+            }}
+          />
+          {errors.role && <div class="field-error">{errors.role}</div>}
         </div>
 
         {mode === 'edit' && (
