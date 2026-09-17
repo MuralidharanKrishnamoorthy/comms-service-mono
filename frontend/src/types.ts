@@ -48,7 +48,7 @@ export interface ChannelContent {
   live: boolean
 }
 
-export type TemplateStatus = 'pending' | 'approved' | 'rejected'
+export type TemplateStatus = 'pending' | 'approved' | 'rejected' | 'returned'
 export type TemplateStatusFilter = 'all' | TemplateStatus
 
 export interface Template {
@@ -62,6 +62,7 @@ export interface Template {
   reviewed_by: string | null
   reviewed_at: string | null
   rejection_reason: string | null
+  remarks: string | null
   created_at: string
   updated_at: string
 }

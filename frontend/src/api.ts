@@ -187,6 +187,13 @@ export const rejectTemplate = (templateId: string, reason?: string) =>
     body: JSON.stringify({ reason }),
   })
 
+// Return a template to its author for edits (admin only). Remarks are required.
+export const returnTemplate = (templateId: string, remarks: string) =>
+  request<Template>(`/templates/${templateId}/return`, {
+    method: 'PATCH',
+    body: JSON.stringify({ remarks }),
+  })
+
 export const getTemplate = (projectId: string, templateKey: string) =>
   request<Template>(`/projects/${projectId}/templates/${templateKey}`)
 

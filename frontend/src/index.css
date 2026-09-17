@@ -124,11 +124,86 @@ button {
   border-color: var(--danger);
 }
 
-/* ---------- Row actions (Templates approve/reject) ---------- */
+.btn-info {
+  background: #2158c9;
+  border-color: #2158c9;
+  color: #fff;
+}
+.btn-info:hover {
+  background: #1a469e;
+  border-color: #1a469e;
+}
+
+/* ---------- Row actions (Templates approve/reject/return) ---------- */
 .row-actions {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+}
+
+/* The "—" placeholder when a row has no review actions — centred under the
+   Actions header rather than hugging the column's left edge. */
+.actions-empty {
+  display: block;
+  text-align: center;
+}
+
+/* Round icon buttons for the review actions. Colour comes from each variant and
+   drives the (currentColor-stroked) icon inside. */
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1.5px solid var(--border-strong);
+  border-radius: 50%;
+  background: var(--surface);
+  transition: background 0.12s, border-color 0.12s, opacity 0.12s;
+}
+
+.icon-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.icon-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.icon-btn-approve {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.icon-btn-approve:hover:not(:disabled) {
+  background: var(--accent-ink);
+  border-color: var(--accent-ink);
+}
+
+.icon-btn-reject {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+.icon-btn-reject:hover:not(:disabled) {
+  background: var(--danger-soft);
+}
+
+.icon-btn-return {
+  border-color: #2158c9;
+  color: #2158c9;
+}
+.icon-btn-return:hover:not(:disabled) {
+  background: #e7eefb;
+}
+
+/* The required-remarks validation message under the inline return editor. */
+.inline-error {
+  margin-top: 6px;
+  color: var(--danger);
+  font-size: 0.8571rem;
 }
 
 /* Rejected-template banner on the template detail page. Fixed brand-red palette
@@ -155,6 +230,83 @@ button {
   flex-shrink: 0;
   border-radius: 50%;
   background: #c0392b;
+}
+
+/* Returned-for-edits banner — same shape as the rejected one, in blue. */
+.template-returned-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 11px 15px;
+  background: #e7eefb;
+  color: #1e50b8;
+  border: 1px solid #bcd0f2;
+  border-radius: var(--r-md);
+  font-size: 0.9286rem;
+  font-weight: 500;
+}
+
+.template-returned-dot {
+  width: 8px;
+  height: 8px;
+  margin-top: 0.5em;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: #1e50b8;
+}
+
+/* Pending-approval banner — shown to the author after they (re)submit a
+   template, so the status change to "pending approval" is visible on the edit
+   page (e.g. right after resubmitting a rejected or returned template). Amber,
+   distinct from the red rejected and blue returned banners. */
+.template-pending-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 11px 15px;
+  background: #fdf3d9;
+  color: #8a6100;
+  border: 1px solid #f0dca6;
+  border-radius: var(--r-md);
+  font-size: 0.9286rem;
+  font-weight: 500;
+}
+
+.template-pending-dot {
+  width: 8px;
+  height: 8px;
+  margin-top: 0.5em;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: #b8860b;
+}
+
+/* A small "locked" note above the content editor of a rejected template. The
+   editor below it is made non-interactive by .tpl-locked-fields; the real gate
+   is the backend, which refuses the edit outright (409). */
+.tpl-locked-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0 14px;
+  padding: 7px 12px;
+  background: #f4f5f7;
+  color: var(--muted, #667085);
+  border: 1px solid #e4e7ec;
+  border-radius: var(--r-md);
+  font-size: 0.8571rem;
+  font-weight: 500;
+}
+
+/* Visually and interactively disable the editor for a locked (rejected)
+   template. pointer-events:none blocks mouse interaction; user-select:text still
+   lets the author read/copy the content. The backend is the authoritative gate. */
+.tpl-locked-fields {
+  opacity: 0.6;
+  pointer-events: none;
+  user-select: text;
 }
 
 /* Let a long, unbroken reason wrap instead of overflowing the banner (and
@@ -794,6 +946,10 @@ textarea.invalid,
 .badge-warning {
   background: #f6edda;
   color: var(--warning);
+}
+.badge-info {
+  background: #e7eefb;
+  color: #2158c9;
 }
 
 /* ---------- Tables ---------- */

@@ -17,6 +17,7 @@ export async function migrateTemplateStatus() {
             reviewed_by: null,
             reviewed_at: null,
             rejection_reason: null,
+            remarks: null,
         },
     });
     if (result.modifiedCount > 0) {

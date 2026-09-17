@@ -3,7 +3,7 @@ import { ObjectId, MongoServerError } from 'mongodb';
 import { getDb } from '../db.js';
 import { createTemplateSchema, updateChannelContentSchema, normalizeTemplateKey, TEMPLATE_STATUS_FILTERS, } from '../models/template.js';
 import { hasProjectAccess } from '../lib/access.js';
-import { autoApprovedReviewFields, initialReviewFields, resetReviewForEdit, } from '../lib/templateReview.js';
+import { autoApprovedReviewFields, initialReviewFields, isEditLocked, resetReviewForEdit, } from '../lib/templateReview.js';
 export const templatesRoute = new Hono();
 function withVersionAndLive(content) {
     return { ...content, version: 1, live: true };
@@ -135,6 +135,12 @@ templatesRoute.patch('/:templateKey/:channel', async (c) => {
     });
     if (!template) {
         return c.json({ error: 'Template not found' }, 404);
+    }
+    // A rejected template is locked — refuse before touching anything, whatever
+    // fields the request carries. The author must create a new template instead;
+    // only an admin reopen (a separate action) could move it out of "rejected".
+    if (isEditLocked(template.status)) {
+        return c.json({ error: 'This template was rejected and is locked. Create a new template instead.' }, 409);
     }
     const existingChannel = template.channels[channel];
     const updatedChannel = {

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'preact/hooks'
 import { route } from 'preact-router'
 import { useStore } from '../store'
+import { useAuth } from '../auth'
 import { ApiError, API_BASE, getTemplate, updateChannel } from '../api'
 import type { Channel, Template } from '../types'
 import { ChannelFields, variablesFor, type ChannelValues } from '../components/ChannelFields'
@@ -12,6 +13,10 @@ const CHANNEL_LABELS: Record<Channel, string> = { email: 'Email', sms: 'SMS', pu
 
 export function TemplateEdit({ templateKey }: { path?: string; templateKey?: string }) {
   const { selectedProject } = useStore()
+  const { user } = useAuth()
+  // Admins see status in the Templates list, so the detail-page status banners
+  // are for the author (Developer/BA/Tester) only.
+  const isAdmin = user?.role === 'admin'
 
   const back = returnTarget(window.location.search, {
     href: '/templates',
@@ -73,6 +78,11 @@ export function TemplateEdit({ templateKey }: { path?: string; templateKey?: str
 
   const channelKeys = useMemo(() => (template ? enabledChannels(template.channels) : []), [template])
 
+  // A rejected template is a dead end: the backend refuses any content edit
+  // (409), so the editor and Save are locked here to match. "returned" stays
+  // fully editable — saving it resubmits for approval.
+  const locked = template?.status === 'rejected'
+
   if (!selectedProject) {
     return (
       <div>
@@ -121,7 +131,14 @@ export function TemplateEdit({ templateKey }: { path?: string; templateKey?: str
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.isNetwork) setBanner(`Can't reach the API at ${API_BASE} — is the backend running?`)
-        else if (err.status === 400) {
+        else if (err.status === 409 || err.status === 403) {
+          // The template was locked (e.g. rejected) between load and save. Trust
+          // the backend, show its message, and re-lock the UI by re-fetching.
+          setBanner(err.message)
+          getTemplate(selectedProject._id, template.template_key)
+            .then((t) => setTemplate(t))
+            .catch(() => {})
+        } else if (err.status === 400) {
           const fe = err.details?.fieldErrors
           if (fe) {
             const mapped: Record<string, string> = {}
@@ -138,14 +155,35 @@ export function TemplateEdit({ templateKey }: { path?: string; templateKey?: str
 
   return (
     <div>
-      {template?.status === 'rejected' && (
+      {!isAdmin && template?.status === 'rejected' && (
         <div class="template-rejected-banner" role="alert">
           <span class="template-rejected-dot" aria-hidden="true" />
           <span class="template-rejected-text">
             Rejected by admin.{' '}
             {template.rejection_reason
-              ? `Reason: ${template.rejection_reason}`
-              : 'No reason provided.'}
+              ? `Reason: ${template.rejection_reason}.`
+              : 'No reason provided.'}{' '}
+            This template is locked and can't be edited.
+          </span>
+        </div>
+      )}
+
+      {!isAdmin && template?.status === 'returned' && (
+        <div class="template-returned-banner" role="alert">
+          <span class="template-returned-dot" aria-hidden="true" />
+          <span class="template-rejected-text">
+            Returned for edits by admin.{' '}
+            {template.remarks ? `Remarks: ${template.remarks}.` : 'No remarks provided.'}{' '}
+            Edit below and resubmit for approval.
+          </span>
+        </div>
+      )}
+
+      {!isAdmin && template?.status === 'pending' && (
+        <div class="template-pending-banner" role="status">
+          <span class="template-pending-dot" aria-hidden="true" />
+          <span class="template-rejected-text">
+            Pending approval — waiting for an admin to review your changes.
           </span>
         </div>
       )}
@@ -223,19 +261,30 @@ export function TemplateEdit({ templateKey }: { path?: string; templateKey?: str
 
                 {banner && <div class="banner-error">{banner}</div>}
 
+                {locked && (
+                  <div class="tpl-locked-note">
+                    🔒 Editing is disabled for rejected templates.
+                  </div>
+                )}
+
                 {activeTab && template.channels[activeTab] && (
-                  <ChannelFields
-                    channel={activeTab}
-                    values={content[activeTab] ?? {}}
-                    errors={errors}
-                    onChange={(p) => patch(activeTab, p)}
-                    sampleValues={sampleValues[activeTab] ?? {}}
-                    onSampleChange={setSample(activeTab)}
-                  />
+                  <div
+                    class={locked ? 'tpl-locked-fields' : undefined}
+                    aria-disabled={locked ? 'true' : undefined}
+                  >
+                    <ChannelFields
+                      channel={activeTab}
+                      values={content[activeTab] ?? {}}
+                      errors={errors}
+                      onChange={(p) => patch(activeTab, p)}
+                      sampleValues={sampleValues[activeTab] ?? {}}
+                      onSampleChange={setSample(activeTab)}
+                    />
+                  </div>
                 )}
               </div>
 
-              {activeTab && template.channels[activeTab] && (
+              {!locked && activeTab && template.channels[activeTab] && (
                 <div class="form-actions" style={{ marginTop: 0 }}>
                   <button
                     type="button"

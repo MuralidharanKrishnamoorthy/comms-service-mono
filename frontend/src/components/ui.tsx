@@ -257,6 +257,32 @@ export function MultiSelect({
 // ---------- Shared action icons ----------
 // Hand-drawn rather than pulled from an icon package, matching the rest of
 // this app (see BackLink below, NavIcon in app.tsx). Sized by their container.
+export function CheckIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M5 12l5 5L20 7" />
+    </svg>
+  )
+}
+
+export function CrossIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M6 6l12 12M18 6L6 18" />
+    </svg>
+  )
+}
+
+// A return / undo arrow — curves back to the left, for "send back for edits".
+export function ReturnIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M9 14L4 9l5-5" />
+      <path d="M4 9h11a5 5 0 0 1 0 10H9" />
+    </svg>
+  )
+}
+
 export function PencilIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
@@ -284,9 +310,11 @@ export function StatusBadge({ status, label }: { status: string; label?: string 
       ? 'badge-success'
       : status === 'failed' || status === 'revoked' || status === 'rejected'
         ? 'badge-danger'
-        : status === 'pending' || status === 'expired'
-          ? 'badge-warning'
-          : 'badge-neutral'
+        : status === 'returned'
+          ? 'badge-info'
+          : status === 'pending' || status === 'expired'
+            ? 'badge-warning'
+            : 'badge-neutral'
   return <span class={`badge ${cls}`}>{label ?? status}</span>
 }
 
