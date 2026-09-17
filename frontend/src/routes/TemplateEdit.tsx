@@ -11,7 +11,7 @@ import { enabledChannels, formatDate, returnTarget } from '../util'
 const CHANNEL_LABELS: Record<Channel, string> = { email: 'Email', sms: 'SMS', push: 'Push' }
 
 export function TemplateEdit({ templateKey }: { path?: string; templateKey?: string }) {
-  const { selectedProject } = useStore()
+  const { selectedProject, projectsLoading } = useStore()
 
   const back = returnTarget(window.location.search, {
     href: '/templates',
@@ -72,6 +72,15 @@ export function TemplateEdit({ templateKey }: { path?: string; templateKey?: str
   }, [selectedProject, templateKey])
 
   const channelKeys = useMemo(() => (template ? enabledChannels(template.channels) : []), [template])
+
+  if (projectsLoading) {
+    return (
+      <div>
+        <PageHeader title="Template" />
+        <div class="card">Loading…</div>
+      </div>
+    )
+  }
 
   if (!selectedProject) {
     return (
