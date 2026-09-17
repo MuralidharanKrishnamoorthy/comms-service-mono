@@ -12,6 +12,7 @@ import {
 } from '../models/template.js'
 import type { AuthEnv } from '../middleware/dashboardAuth.js'
 import { hasProjectAccess } from '../lib/access.js'
+import { parsePageParams, paginationMeta, skipFor } from '../lib/pagination.js'
 import {
   autoApprovedReviewFields,
   initialReviewFields,
@@ -113,14 +114,20 @@ templatesRoute.get('/', async (c) => {
     query.status = raw
   }
 
+  // Pagination is applied AFTER the filters above, so totalItems counts only the
+  // filtered set and the page is a window into it.
+  const { page, limit } = parsePageParams(c.req.query('page'), c.req.query('limit'))
   const db = getDb()
-  const templates = await db
-    .collection<Template>('templates')
+  const col = db.collection<Template>('templates')
+  const totalItems = await col.countDocuments(query)
+  const templates = await col
     .find(query)
     .sort({ updated_at: -1 })
+    .skip(skipFor(page, limit))
+    .limit(limit)
     .toArray()
 
-  return c.json(templates)
+  return c.json({ data: templates, pagination: paginationMeta(page, limit, totalItems) })
 })
 
 templatesRoute.get('/:templateKey', async (c) => {

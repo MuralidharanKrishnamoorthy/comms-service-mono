@@ -13,6 +13,8 @@ import {
 } from '../api'
 import type { ManagedUser, Role } from '../types'
 import { ApiBanner, Dropdown, Modal, MultiSelect, PageHeader } from '../components/ui'
+import { Pagination } from '../components/Pagination'
+import { usePagedList } from '../usePagedList'
 
 const ROLE_OPTIONS: { value: Role; label: string }[] = [
   { value: 'admin', label: 'Admin' },
@@ -35,9 +37,6 @@ export function RoleBadge({ role }: { role: Role }) {
 export function UsersAccess(_props: { path?: string }) {
   const { user } = useAuth()
   const { projects } = useStore()
-  const [users, setUsers] = useState<ManagedUser[]>([])
-  const [loading, setLoading] = useState(true)
-  const [unreachable, setUnreachable] = useState(false)
   const [editing, setEditing] = useState<ManagedUser | null>(null)
   const [creating, setCreating] = useState(false)
 
@@ -48,25 +47,13 @@ export function UsersAccess(_props: { path?: string }) {
 
   const isAdmin = user?.role === 'admin'
 
-  const refresh = () => {
-    setLoading(true)
-    setUnreachable(false)
-    listUsers()
-      .then(setUsers)
-      .catch((err) => {
-        if (err instanceof ApiError && err.isNetwork) setUnreachable(true)
-        setUsers([])
-      })
-      .finally(() => setLoading(false))
-  }
+  // The users list has no filters today, so the filter key is constant — only
+  // the page changes. `reload()` after a create/edit refetches the current page.
+  const list = usePagedList<ManagedUser>((page) => listUsers({ page }), 'users', isAdmin)
 
   // Non-admins can't be here — send them to Projects. (Backend enforces it too.)
   useEffect(() => {
     if (!isAdmin) route('/projects', true)
-  }, [isAdmin])
-
-  useEffect(() => {
-    if (isAdmin) refresh()
   }, [isAdmin])
 
   if (!isAdmin) return null
@@ -83,7 +70,7 @@ export function UsersAccess(_props: { path?: string }) {
         }
       />
 
-      {unreachable && <ApiBanner base={API_BASE} />}
+      {list.unreachable && <ApiBanner base={API_BASE} />}
 
       <div class="table-wrap">
         <table>
@@ -97,20 +84,20 @@ export function UsersAccess(_props: { path?: string }) {
             </tr>
           </thead>
           <tbody>
-            {loading ? (
+            {list.loading ? (
               <tr class="state-row">
                 <td colSpan={5}>Loading…</td>
               </tr>
-            ) : unreachable ? (
+            ) : list.unreachable ? (
               <tr class="state-row">
                 <td colSpan={5}>Couldn't load users.</td>
               </tr>
-            ) : users.length === 0 ? (
+            ) : list.items.length === 0 ? (
               <tr class="state-row">
                 <td colSpan={5}>No users yet — click Add user to create one.</td>
               </tr>
             ) : (
-              users.map((u) => (
+              list.items.map((u) => (
                 <tr key={u._id}>
                   <td class="cell-primary">
                     {u.name}
@@ -151,13 +138,21 @@ export function UsersAccess(_props: { path?: string }) {
         </table>
       </div>
 
+      <Pagination
+        currentPage={list.pagination.page}
+        totalPages={list.pagination.totalPages}
+        totalItems={list.pagination.totalItems}
+        pageSize={list.pagination.limit}
+        onPageChange={list.setPage}
+      />
+
       {creating && (
         <UserModal
           mode="create"
           onClose={() => setCreating(false)}
           onSaved={() => {
             setCreating(false)
-            refresh()
+            list.reload()
           }}
         />
       )}
@@ -168,7 +163,7 @@ export function UsersAccess(_props: { path?: string }) {
           onClose={() => setEditing(null)}
           onSaved={() => {
             setEditing(null)
-            refresh()
+            list.reload()
           }}
         />
       )}

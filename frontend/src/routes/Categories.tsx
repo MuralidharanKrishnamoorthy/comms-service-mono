@@ -7,7 +7,7 @@ import {
   deleteCategory,
   getCategory,
   listCategories,
-  listTemplates,
+  listAllTemplates,
   updateCategory,
 } from '../api'
 import type { Category, Template } from '../types'
@@ -306,7 +306,7 @@ function EditCategoryModal({
     }
     let cancelled = false
     setLoadingCandidates(true)
-    listTemplates(projectId)
+    listAllTemplates(projectId)
       .then((rows) => {
         if (!cancelled) setCandidates(rows)
       })
@@ -490,7 +490,7 @@ function CreateCategoryModal({ onClose, onCreated }: { onClose: () => void; onCr
     let cancelled = false
     setTemplatesLoading(true)
     setPicked([])
-    listTemplates(projectId)
+    listAllTemplates(projectId)
       .then((rows) => {
         if (!cancelled) setTemplates(rows)
       })

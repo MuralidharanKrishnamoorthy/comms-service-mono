@@ -20,6 +20,9 @@ async function ensureIndexes(database) {
     // creator's "my templates" list (find by created_by within a project).
     await database.collection('templates').createIndex({ project_id: 1, status: 1 });
     await database.collection('templates').createIndex({ project_id: 1, created_by: 1 });
+    // The templates list pages sorted by updated_at within a project, so this
+    // index serves the filter (project_id) and the sort/paginate in one scan.
+    await database.collection('templates').createIndex({ project_id: 1, updated_at: -1 });
     await database.collection('message_logs').createIndex({ project_id: 1, created_at: -1 });
     await database.collection('message_logs').createIndex({ status: 1, next_retry_at: 1 });
     await database.collection('message_logs').createIndex({ provider_message_id: 1 });
@@ -44,6 +47,7 @@ async function ensureIndexes(database) {
     await database.collection('api_keys').createIndex({ project_id: 1 });
     await database.collection('api_keys').createIndex({ project_id: 1, created_by: 1 });
     await database.collection('api_keys').createIndex({ key_hash: 1 }, { unique: true });
+    await database.collection('api_keys').createIndex({ status: 1, expires_at: 1 });
 }
 export async function connectDb() {
     if (db)

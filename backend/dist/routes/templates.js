@@ -3,6 +3,7 @@ import { ObjectId, MongoServerError } from 'mongodb';
 import { getDb } from '../db.js';
 import { createTemplateSchema, updateChannelContentSchema, normalizeTemplateKey, TEMPLATE_STATUS_FILTERS, } from '../models/template.js';
 import { hasProjectAccess } from '../lib/access.js';
+import { parsePageParams, paginationMeta, skipFor } from '../lib/pagination.js';
 import { autoApprovedReviewFields, initialReviewFields, isEditLocked, resetReviewForEdit, } from '../lib/templateReview.js';
 export const templatesRoute = new Hono();
 templatesRoute.use('*', async (c, next) => {
@@ -66,31 +67,34 @@ templatesRoute.post('/', async (c) => {
 });
 templatesRoute.get('/', async (c) => {
     const projectId = c.req.param('projectId');
-    const user = c.get('user');
     const query = { project_id: new ObjectId(projectId) };
-    if (user.role === 'admin') {
-        // Admins manage every template in the project and may narrow by review
-        // status (?status=pending|approved|rejected). Absent/"all" → no filter, so
-        // the management view keeps showing everything by default.
-        const raw = c.req.query('status');
-        if (raw && raw !== 'all') {
-            if (!TEMPLATE_STATUS_FILTERS.includes(raw)) {
-                return c.json({ error: `status must be one of: ${TEMPLATE_STATUS_FILTERS.join(', ')}` }, 400);
-            }
-            query.status = raw;
+    // Templates belong to the project, not to whoever typed them: everyone on the
+    // project sees the same list, the same way they see each other's categories.
+    // Membership is already enforced by the middleware above, and `created_by` is
+    // kept for attribution and for the review flow rather than for visibility.
+    //
+    // Optionally narrowed by review status (?status=pending|approved|rejected);
+    // absent or "all" means no filter.
+    const raw = c.req.query('status');
+    if (raw && raw !== 'all') {
+        if (!TEMPLATE_STATUS_FILTERS.includes(raw)) {
+            return c.json({ error: `status must be one of: ${TEMPLATE_STATUS_FILTERS.join(', ')}` }, 400);
         }
+        query.status = raw;
     }
-    else {
-        // A non-admin only ever sees the templates they themselves created.
-        query.created_by = user._id;
-    }
+    // Pagination is applied AFTER the filters above, so totalItems counts only the
+    // filtered set and the page is a window into it.
+    const { page, limit } = parsePageParams(c.req.query('page'), c.req.query('limit'));
     const db = getDb();
-    const templates = await db
-        .collection('templates')
+    const col = db.collection('templates');
+    const totalItems = await col.countDocuments(query);
+    const templates = await col
         .find(query)
         .sort({ updated_at: -1 })
+        .skip(skipFor(page, limit))
+        .limit(limit)
         .toArray();
-    return c.json(templates);
+    return c.json({ data: templates, pagination: paginationMeta(page, limit, totalItems) });
 });
 templatesRoute.get('/:templateKey', async (c) => {
     const projectId = c.req.param('projectId');

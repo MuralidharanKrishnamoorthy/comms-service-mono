@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'preact/hooks'
 import { route } from 'preact-router'
 import { useStore } from '../store'
-import { ApiError, API_BASE, listCategories, listLogs } from '../api'
+import { API_BASE, listCategories, listLogs } from '../api'
 import type { Category, MessageLog, MessageStatus } from '../types'
 import { ApiBanner, Dropdown, PageHeader, StatusBadge } from '../components/ui'
+import { Pagination } from '../components/Pagination'
+import { usePagedList } from '../usePagedList'
 import { formatDate, linkWithReturn } from '../util'
 
 const STATUSES: MessageStatus[] = ['sent', 'failed']
@@ -12,9 +14,6 @@ const CHANNELS = ['email', 'sms', 'push']
 export function Logs(_props: { path?: string }) {
   const { projects, setSelectedProjectId } = useStore()
   const projectName = (id: string) => projects.find((p) => p._id === id)?.name ?? '—'
-  const [logs, setLogs] = useState<MessageLog[]>([])
-  const [loading, setLoading] = useState(true)
-  const [unreachable, setUnreachable] = useState(false)
 
   const [projectFilter, setProjectFilter] = useState('')
   const [status, setStatus] = useState('')
@@ -29,50 +28,23 @@ export function Logs(_props: { path?: string }) {
       .catch(() => setCategories([]))
   }, [])
 
-  useEffect(() => {
-    if (projects.length === 0) {
-      setLogs([])
-      setLoading(false)
-      return
-    }
+  // All four filters (project, category, status, channel) are applied
+  // server-side before the page window; the category filter is resolved to its
+  // templates on the backend. Any filter change resets to page 1 via the key.
+  const list = usePagedList<MessageLog>(
+    (page) =>
+      listLogs({
+        project: projectFilter || undefined,
+        category: categoryFilter || undefined,
+        status: status || undefined,
+        channel: channel || undefined,
+        page,
+      }),
+    `${projectFilter}|${categoryFilter}|${status}|${channel}`,
+    projects.length > 0
+  )
 
-    const targets = projectFilter ? [projectFilter] : projects.map((p) => p._id)
-    let cancelled = false
-    setLoading(true)
-    setUnreachable(false)
-
-    const filters = { status: status || undefined, channel: channel || undefined }
-    Promise.all(targets.map((pid) => listLogs(pid, filters)))
-      .then((batches) => {
-        if (cancelled) return
-        const merged = batches
-          .flat()
-          .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))
-        setLogs(merged)
-      })
-      .catch((err) => {
-        if (cancelled) return
-        if (err instanceof ApiError && err.isNetwork) setUnreachable(true)
-        setLogs([])
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [projectFilter, projects, status, channel])
-
-  const categoryKeys = categoryFilter
-    ? new Set(
-        categories
-          .find((c) => c._id === categoryFilter)
-          ?.templates.map((t) => `${t.project_id}::${t.template_key}`) ?? []
-      )
-    : null
-  const visibleLogs = categoryKeys
-    ? logs.filter((log) => categoryKeys.has(`${log.project_id}::${log.template_key}`))
-    : logs
+  const visibleLogs = list.items
 
   if (projects.length === 0) {
     return (
@@ -87,7 +59,7 @@ export function Logs(_props: { path?: string }) {
     <div>
       <PageHeader title="Notification Logs" />
 
-      {unreachable && <ApiBanner base={API_BASE} />}
+      {list.unreachable && <ApiBanner base={API_BASE} />}
 
       <div class="toolbar">
         <div class="field toolbar-field">
@@ -161,11 +133,11 @@ export function Logs(_props: { path?: string }) {
             </tr>
           </thead>
           <tbody>
-            {loading ? (
+            {list.loading ? (
               <tr class="state-row">
                 <td colSpan={6}>Loading…</td>
               </tr>
-            ) : unreachable ? (
+            ) : list.unreachable ? (
               <tr class="state-row">
                 <td colSpan={6}>Couldn't load logs.</td>
               </tr>
@@ -231,6 +203,13 @@ export function Logs(_props: { path?: string }) {
         </table>
       </div>
 
+      <Pagination
+        currentPage={list.pagination.page}
+        totalPages={list.pagination.totalPages}
+        totalItems={list.pagination.totalItems}
+        pageSize={list.pagination.limit}
+        onPageChange={list.setPage}
+      />
     </div>
   )
 }

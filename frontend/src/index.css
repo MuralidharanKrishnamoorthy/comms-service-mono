@@ -138,11 +138,21 @@ button {
 .row-actions {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
-/* The "—" placeholder when a row has no review actions — centred under the
-   Actions header rather than hugging the column's left edge. */
+/* Centre the Actions column — its header, the icon buttons, and the "—"
+   placeholder all sit in the middle of the column rather than hugging the left
+   edge. */
+.col-actions {
+  text-align: center;
+}
+
+.col-actions .row-actions {
+  justify-content: center;
+}
+
+/* The "—" placeholder when a row has no review actions. */
 .actions-empty {
   display: block;
   text-align: center;
@@ -150,22 +160,25 @@ button {
 
 /* Round icon buttons for the review actions. Colour comes from each variant and
    drives the (currentColor-stroked) icon inside. */
-.icon-btn {
+/* Scoped to .row-actions so these win over the generic .icon-btn defined later
+   in this file (used for API-key/category buttons at ~2.4em) — otherwise that
+   later rule clobbers the size here. */
+.row-actions .icon-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
+  width: 24px;
+  height: 24px;
   padding: 0;
-  border: 1.5px solid var(--border-strong);
+  border: 1px solid var(--border-strong);
   border-radius: 50%;
   background: var(--surface);
   transition: background 0.12s, border-color 0.12s, opacity 0.12s;
 }
 
-.icon-btn svg {
-  width: 16px;
-  height: 16px;
+.row-actions .icon-btn svg {
+  width: 13px;
+  height: 13px;
 }
 
 .icon-btn:disabled {
@@ -1316,4 +1329,45 @@ tr.clickable:hover td {
   text-align: center;
   color: var(--ink-faint);
   padding: 48px 20px;
+}
+
+/* Shared pagination control (Templates, Notification Logs, Users & Access).
+   Sits under a table: summary on the left, page controls on the right. */
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+
+.pagination-summary {
+  color: var(--ink-muted);
+  font-size: 0.8571rem;
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pagination-page {
+  min-width: 34px;
+  text-align: center;
+}
+
+/* The current page reads like the app's other selected states — orange accent. */
+.pagination-page.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+
+.pagination-gap {
+  padding: 0 4px;
+  color: var(--ink-faint);
+  user-select: none;
 }

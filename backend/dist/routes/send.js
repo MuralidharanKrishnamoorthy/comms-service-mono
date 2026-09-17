@@ -4,6 +4,7 @@ import { getDb } from '../db.js';
 import { authMiddleware } from '../middleware/auth.js';
 import { validateVariables, MissingVariablesError } from '../lib/template.js';
 import { createMessageLog, markSent, markFailedAndScheduleRetry } from '../lib/messageLog.js';
+import { isRetryable } from '../providers/httpProvider.js';
 import { dispatchSend } from '../lib/dispatch.js';
 import { normalizeTemplateKey } from '../models/template.js';
 import { isUsable } from '../lib/templateReview.js';
@@ -71,7 +72,7 @@ sendRoute.post('/', async (c) => {
     }
     catch (err) {
         console.error('Send failed:', err);
-        await markFailedAndScheduleRetry(log.id, log.attempts);
+        await markFailedAndScheduleRetry(log.id, log.attempts, isRetryable(err));
         return c.json({ error: 'Failed to send, will retry automatically', message_log_id: log.id }, 502);
     }
 });

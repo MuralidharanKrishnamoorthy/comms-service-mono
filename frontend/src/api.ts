@@ -177,11 +177,63 @@ export const revokeApiKey = (projectId: string, keyId: string) =>
   )
 
 // ---------- Templates ----------
-// `status` narrows the list to one review status (admins only — the backend
-// ignores it for other roles). Omit or pass 'all' for no status filter.
-export const listTemplates = (projectId: string, status?: TemplateStatusFilter) => {
-  const qs = status && status !== 'all' ? `?status=${status}` : ''
-  return request<Template[]>(`/projects/${projectId}/templates${qs}`)
+// Every paged list endpoint returns this envelope: the page of rows plus the
+// counts the UI needs. totalItems/totalPages describe the FILTERED set.
+export interface PaginationMeta {
+  page: number
+  limit: number
+  totalItems: number
+  totalPages: number
+}
+export interface Paginated<T> {
+  data: T[]
+  pagination: PaginationMeta
+}
+
+// `status` narrows the list to one review status; omit or pass 'all' for no
+// filter. `page` selects the 10-row window; filters are applied server-side
+// before pagination.
+export const listTemplates = (
+  projectId: string,
+  opts: { status?: TemplateStatusFilter; page?: number } = {}
+) =>
+  request<Paginated<Template>>(`/projects/${projectId}/templates`, {
+    query: {
+      status: opts.status && opts.status !== 'all' ? opts.status : undefined,
+      page: opts.page ? String(opts.page) : undefined,
+    },
+  })
+
+// The cross-project, paginated templates list behind the Templates page.
+// `project` and `status` are optional filters applied server-side before the
+// page window; omit `project` to span every project the caller can see.
+export const listTemplatesList = (
+  opts: { project?: string; status?: TemplateStatusFilter; page?: number } = {}
+) =>
+  request<Paginated<Template>>('/templates', {
+    query: {
+      project: opts.project || undefined,
+      status: opts.status && opts.status !== 'all' ? opts.status : undefined,
+      page: opts.page ? String(opts.page) : undefined,
+    },
+  })
+
+// The full template list for a project, paged through behind the scenes — for
+// callers that genuinely need every row (e.g. the category template picker),
+// not a single page. The list endpoint itself stays capped at 10 per page.
+export const listAllTemplates = async (
+  projectId: string,
+  status?: TemplateStatusFilter
+): Promise<Template[]> => {
+  const all: Template[] = []
+  let page = 1
+  for (;;) {
+    const res = await listTemplates(projectId, { status, page })
+    all.push(...res.data)
+    if (res.data.length === 0 || page >= res.pagination.totalPages) break
+    page++
+  }
+  return all
 }
 
 // Approve/reject a template by id (admin only). Both return the updated template.
@@ -255,10 +307,27 @@ export const getCategory = (categoryId: string) =>
   request<CategoryWithAttached>(`/categories/${categoryId}`)
 
 // ---------- Logs ----------
+// Cross-project, paginated logs feed. Every argument is an optional filter
+// applied server-side before the page window; `project` and `category` narrow
+// scope, `page` selects the window.
 export const listLogs = (
-  projectId: string,
-  filters: { status?: string; channel?: string; template_key?: string } = {}
-) => request<MessageLog[]>(`/projects/${projectId}/logs`, { query: filters })
+  filters: {
+    project?: string
+    category?: string
+    status?: string
+    channel?: string
+    page?: number
+  } = {}
+) =>
+  request<Paginated<MessageLog>>('/logs', {
+    query: {
+      project: filters.project || undefined,
+      category: filters.category || undefined,
+      status: filters.status || undefined,
+      channel: filters.channel || undefined,
+      page: filters.page ? String(filters.page) : undefined,
+    },
+  })
 
 // ---------- Auth ----------
 export const login = (email: string, password: string) =>
@@ -298,7 +367,10 @@ export interface UpdateUserBody {
   project_ids?: string[]
 }
 
-export const listUsers = () => request<ManagedUser[]>('/users')
+export const listUsers = (opts: { page?: number } = {}) =>
+  request<Paginated<ManagedUser>>('/users', {
+    query: { page: opts.page ? String(opts.page) : undefined },
+  })
 
 export const createUser = (body: CreateUserBody) =>
   request<ManagedUser>('/users', { method: 'POST', body: JSON.stringify(body) })

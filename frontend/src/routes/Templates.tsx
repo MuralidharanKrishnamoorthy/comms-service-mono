@@ -3,7 +3,7 @@ import { Fragment } from 'preact'
 import { route } from 'preact-router'
 import { useStore } from '../store'
 import { useAuth } from '../auth'
-import { ApiError, API_BASE, approveTemplate, listTemplates, rejectTemplate, returnTemplate } from '../api'
+import { API_BASE, approveTemplate, listTemplatesList, rejectTemplate, returnTemplate } from '../api'
 import type { Template, TemplateStatusFilter } from '../types'
 import {
   ApiBanner,
@@ -18,6 +18,8 @@ import {
   useToast,
 } from '../components/ui'
 import { enabledChannels, formatDate } from '../util'
+import { Pagination } from '../components/Pagination'
+import { usePagedList } from '../usePagedList'
 
 const STATUS_OPTIONS: { value: TemplateStatusFilter; label: string }[] = [
   { value: 'all', label: 'All' },
@@ -38,10 +40,22 @@ export function Templates(_props: { path?: string }) {
   const { user } = useAuth()
   const isAdmin = user?.role === 'admin'
 
-  const [templates, setTemplates] = useState<Template[]>([])
-  const [loading, setLoading] = useState(true)
-  const [unreachable, setUnreachable] = useState(false)
   const [statusFilter, setStatusFilter] = useState<TemplateStatusFilter>('all')
+
+  // Cross-project, server-side list: the project + status filters are applied
+  // before the page window. The filter key includes both, so changing either
+  // resets to page 1. Without a project filter it spans every project the caller
+  // can see.
+  const list = usePagedList<Template>(
+    (page) =>
+      listTemplatesList({
+        project: projectFilter || undefined,
+        status: statusFilter === 'all' ? undefined : statusFilter,
+        page,
+      }),
+    `${projectFilter}|${statusFilter}`,
+    projects.length > 0
+  )
 
   // Inline editor: which row is open and in which mode (reject / return), plus
   // its draft text and any validation error (return requires non-empty remarks).
@@ -64,54 +78,23 @@ export function Templates(_props: { path?: string }) {
 
   const { toast, showToast } = useToast()
 
+  // Close any open inline editor when the project or status filter changes.
   useEffect(() => {
-    const targets = projectFilter ? [projectFilter] : projects.map((p) => p._id)
-    if (targets.length === 0) {
-      setTemplates([])
-      setLoading(false)
-      return
-    }
-
-    let cancelled = false
-    setLoading(true)
-    setUnreachable(false)
-    // Close any open inline editor when the project changes underneath us.
     setInline(null)
+  }, [projectFilter, statusFilter])
 
-    Promise.all(targets.map((pid) => listTemplates(pid)))
-      .then((batches) => {
-        if (cancelled) return
-        setTemplates(
-          batches.flat().sort((a, b) => (a.updated_at < b.updated_at ? 1 : -1))
-        )
-      })
-      .catch((err) => {
-        if (cancelled) return
-        if (err instanceof ApiError && err.isNetwork) setUnreachable(true)
-        setTemplates([])
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
+  const visible = list.items
 
-    return () => {
-      cancelled = true
-    }
-  }, [projectFilter, projects])
-
-  // The list is already loaded, so the Status filter narrows client-side — no
-  // extra round-trip. (The list endpoint also accepts ?status for admins.)
-  const visible =
-    statusFilter === 'all' ? templates : templates.filter((t) => t.status === statusFilter)
-
-  // The Actions column (approve/reject/return) is admin-only — a non-admin has no
-  // review actions, so the whole column is dropped rather than shown empty.
+  // The Project column shows only in the all-projects view. The Actions column
+  // (approve/reject/return) is admin-only — a non-admin has no review actions,
+  // so that column is dropped rather than shown empty.
   const showProject = !projectFilter
   const colCount = (isAdmin ? 5 : 4) + (showProject ? 1 : 0)
 
-  function applyUpdate(updated: Template) {
-    setTemplates((prev) => prev.map((t) => (t._id === updated._id ? { ...t, ...updated } : t)))
-  }
+  // A review action changes a row's status (and may move it out of the current
+  // filter), so refetch the page to keep the list and its counts honest. The
+  // updated template is ignored — the refetch is the source of truth.
+  const applyUpdate = (_updated?: Template) => list.reload()
 
   async function onApprove(t: Template) {
     setActioningId(t._id)
@@ -176,7 +159,7 @@ export function Templates(_props: { path?: string }) {
         }
       />
 
-      {unreachable && <ApiBanner base={API_BASE} />}
+      {list.unreachable && <ApiBanner base={API_BASE} />}
 
       <div class="toolbar">
         <div class="field toolbar-field">
@@ -213,15 +196,15 @@ export function Templates(_props: { path?: string }) {
               <th>Channels</th>
               <th>Status</th>
               <th>Last updated</th>
-              {isAdmin && <th>Actions</th>}
+              {isAdmin && <th class="col-actions">Actions</th>}
             </tr>
           </thead>
           <tbody>
-            {loading ? (
+            {list.loading ? (
               <tr class="state-row">
                 <td colSpan={colCount}>Loading…</td>
               </tr>
-            ) : unreachable ? (
+            ) : list.unreachable ? (
               <tr class="state-row">
                 <td colSpan={colCount}>Couldn't load templates.</td>
               </tr>
@@ -270,7 +253,7 @@ export function Templates(_props: { path?: string }) {
                       </td>
                       <td class="cell-faint">{formatDate(t.updated_at)}</td>
                       {isAdmin && (
-                      <td onClick={(e) => e.stopPropagation()}>
+                      <td class="col-actions" onClick={(e) => e.stopPropagation()}>
                         {canReview ? (
                           <div class="row-actions">
                             <button
@@ -362,6 +345,14 @@ export function Templates(_props: { path?: string }) {
           </tbody>
         </table>
       </div>
+
+      <Pagination
+        currentPage={list.pagination.page}
+        totalPages={list.pagination.totalPages}
+        totalItems={list.pagination.totalItems}
+        pageSize={list.pagination.limit}
+        onPageChange={list.setPage}
+      />
 
       {toast && <Toast message={toast.message} tone={toast.tone} />}
     </div>

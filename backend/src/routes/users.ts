@@ -4,6 +4,7 @@ import { getDb } from '../db.js'
 import { hashPassword } from '../lib/password.js'
 import { dashboardAuth, requireAdmin, type AuthEnv } from '../middleware/dashboardAuth.js'
 import { createUserSchema, updateUserSchema, type User } from '../models/user.js'
+import { parsePageParams, paginationMeta, skipFor } from '../lib/pagination.js'
 
 export const usersRoute = new Hono<AuthEnv>()
 usersRoute.use('*', dashboardAuth)
@@ -66,8 +67,19 @@ usersRoute.post('/', async (c) => {
 })
 
 usersRoute.get('/', async (c) => {
-  const users = await getDb().collection<User>('users').find({}).sort({ created_at: 1 }).toArray()
-  return c.json(users.map(safeUser))
+  // No filters on this list today, so pagination is the only shaping. Applied
+  // after any (future) filter would be, and totalItems counts the same set.
+  const { page, limit } = parsePageParams(c.req.query('page'), c.req.query('limit'))
+  const col = getDb().collection<User>('users')
+  const query = {}
+  const totalItems = await col.countDocuments(query)
+  const users = await col
+    .find(query)
+    .sort({ created_at: 1 })
+    .skip(skipFor(page, limit))
+    .limit(limit)
+    .toArray()
+  return c.json({ data: users.map(safeUser), pagination: paginationMeta(page, limit, totalItems) })
 })
 
 usersRoute.patch('/:id', async (c) => {

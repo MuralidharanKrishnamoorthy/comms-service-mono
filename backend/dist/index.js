@@ -8,7 +8,7 @@ import { projectsRoute } from './routes/projects.js';
 import { templatesRoute } from './routes/templates.js';
 import { templateReviewRoute } from './routes/templateReview.js';
 import { categoriesRoute } from './routes/categories.js';
-import { messageLogsRoute } from './routes/messageLogs.js';
+import { messageLogsRoute, logsRoute } from './routes/messageLogs.js';
 import { sendRoute } from './routes/send.js';
 import { webhooksRoute } from './routes/webhooks.js';
 import { uploadsRoute, MAX_UPLOAD_BYTES } from './routes/uploads.js';
@@ -21,6 +21,7 @@ import { seedAdmin } from './lib/seedAdmin.js';
 import { migrateApiKeys } from './lib/migrateApiKeys.js';
 import { migrateTemplateStatus } from './lib/migrateTemplateStatus.js';
 import { startRetrySweep } from './jobs/retrySweep.js';
+import { startApiKeyExpirySweep } from './jobs/apiKeyExpirySweep.js';
 const app = new Hono();
 app.use('*', cors({
     origin: (origin) => origin ?? '*',
@@ -40,6 +41,8 @@ app.use('/uploads', dashboardAuth);
 app.use('/uploads', bodyLimit({ maxSize: MAX_UPLOAD_BYTES }));
 app.use('/templates', dashboardAuth);
 app.use('/templates/*', dashboardAuth);
+app.use('/logs', dashboardAuth);
+app.use('/logs/*', dashboardAuth);
 app.route('/projects/:projectId/members', membersRoute);
 app.route('/projects/:projectId/api-keys', apiKeysRoute);
 app.route('/projects', projectsRoute);
@@ -47,6 +50,7 @@ app.route('/projects/:projectId/templates', templatesRoute);
 app.route('/templates', templateReviewRoute);
 app.route('/categories', categoriesRoute);
 app.route('/projects/:projectId/logs', messageLogsRoute);
+app.route('/logs', logsRoute);
 app.route('/users', usersRoute);
 app.route('/uploads', uploadsRoute);
 app.use('/uploads/*', serveStatic({
@@ -63,6 +67,7 @@ async function main() {
     await migrateApiKeys();
     await migrateTemplateStatus();
     startRetrySweep();
+    startApiKeyExpirySweep();
     serve({
         fetch: app.fetch,
         port: 3000

@@ -1,6 +1,7 @@
 import { getDb } from '../db.js';
 import { dispatchSend } from '../lib/dispatch.js';
 import { markSent, markFailedAndScheduleRetry } from '../lib/messageLog.js';
+import { isRetryable } from '../providers/httpProvider.js';
 const SWEEP_INTERVAL_MS = 30_000;
 export function startRetrySweep() {
     setInterval(() => {
@@ -34,6 +35,6 @@ async function retryOne(log) {
     }
     catch (err) {
         console.error(`Retry failed for message_log ${log._id}:`, err);
-        await markFailedAndScheduleRetry(log._id, log.attempts);
+        await markFailedAndScheduleRetry(log._id, log.attempts, isRetryable(err));
     }
 }

@@ -18,10 +18,10 @@ export async function markSent(logId, providerMessageId) {
     const db = getDb();
     await db.collection('message_logs').updateOne({ _id: logId }, { $set: { status: 'sent', provider_message_id: providerMessageId, updated_at: new Date() } });
 }
-export async function markFailedAndScheduleRetry(logId, attemptsSoFar) {
+export async function markFailedAndScheduleRetry(logId, attemptsSoFar, retryable = true) {
     const db = getDb();
     const attempts = attemptsSoFar + 1;
-    if (attempts >= MAX_ATTEMPTS) {
+    if (!retryable || attempts >= MAX_ATTEMPTS) {
         await db.collection('message_logs').updateOne({ _id: logId }, { $set: { status: 'failed', attempts, updated_at: new Date() } });
         return;
     }
