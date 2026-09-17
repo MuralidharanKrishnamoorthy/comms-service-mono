@@ -52,6 +52,7 @@ async function ensureIndexes(database: Db): Promise<void> {
   await database.collection('api_keys').createIndex({ project_id: 1 })
   await database.collection('api_keys').createIndex({ project_id: 1, created_by: 1 })
   await database.collection('api_keys').createIndex({ key_hash: 1 }, { unique: true })
+  await database.collection('api_keys').createIndex({ status: 1, expires_at: 1 })
 }
 
 export async function connectDb(): Promise<Db> {

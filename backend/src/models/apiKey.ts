@@ -13,6 +13,7 @@ export interface ApiKey {
   status: 'active' | 'revoked'
 
   expires_at: Date | null
+  expiry_reminder_sent_at?: Date | null
   created_at: Date
   updated_at: Date
 }

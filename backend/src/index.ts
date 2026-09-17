@@ -21,6 +21,7 @@ import { seedAdmin } from './lib/seedAdmin.js'
 import { migrateApiKeys } from './lib/migrateApiKeys.js'
 import { migrateTemplateStatus } from './lib/migrateTemplateStatus.js'
 import { startRetrySweep } from './jobs/retrySweep.js'
+import { startApiKeyExpirySweep } from './jobs/apiKeyExpirySweep.js'
 
 const app = new Hono()
 
@@ -78,6 +79,7 @@ async function main() {
   await migrateApiKeys()
   await migrateTemplateStatus()
   startRetrySweep()
+  startApiKeyExpirySweep()
 
   serve({
     fetch: app.fetch,
