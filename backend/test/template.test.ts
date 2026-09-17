@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { htmlToPlainText, renderTemplate, validateVariables, MissingVariablesError } from './template.js'
-import { applyDeferredStyles } from './unicodeStyle.js'
+import { htmlToPlainText, renderTemplate, validateVariables, MissingVariablesError } from '../src/lib/template.js'
+import { applyDeferredStyles } from '../src/lib/unicodeStyle.js'
 
 // What dispatchSend does for the SMS and push channels, start to finish.
 const send = (html: string, data: Record<string, unknown> = {}) =>

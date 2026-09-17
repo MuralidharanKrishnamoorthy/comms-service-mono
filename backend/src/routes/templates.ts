@@ -22,18 +22,25 @@ import type { Category } from '../models/category.js'
 
 export const templatesRoute = new Hono<AuthEnv>()
 
+templatesRoute.use('*', async (c, next) => {
+  const projectId = c.req.param('projectId')
+
+  if (!projectId || !ObjectId.isValid(projectId)) {
+    return c.json({ error: 'Invalid projectId' }, 400)
+  }
+  if (!hasProjectAccess(c.get('user'), projectId)) {
+    return c.json({ error: 'You do not have access to this project' }, 403)
+  }
+
+  await next()
+})
+
 function withVersionAndLive(content: Omit<ChannelContent, 'version' | 'live'>): ChannelContent {
   return { ...content, version: 1, live: true }
 }
 
 templatesRoute.post('/', async (c) => {
-  const projectId = c.req.param('projectId')
-  if (!projectId || !ObjectId.isValid(projectId)) {
-    return c.json({ error: 'Invalid projectId' }, 400)
-  }
-  if (!(await hasProjectAccess(c.get('user'), projectId))) {
-    return c.json({ error: 'You do not have access to this project' }, 403)
-  }
+  const projectId = c.req.param('projectId')!
 
   const body = await c.req.json().catch(() => null)
   const parsed = createTemplateSchema.safeParse(body)
@@ -87,13 +94,7 @@ templatesRoute.post('/', async (c) => {
 })
 
 templatesRoute.get('/', async (c) => {
-  const projectId = c.req.param('projectId')
-  if (!projectId || !ObjectId.isValid(projectId)) {
-    return c.json({ error: 'Invalid projectId' }, 400)
-  }
-  if (!(await hasProjectAccess(c.get('user'), projectId))) {
-    return c.json({ error: 'You do not have access to this project' }, 403)
-  }
+  const projectId = c.req.param('projectId')!
 
   const user = c.get('user')
   const query: Record<string, unknown> = { project_id: new ObjectId(projectId) }
@@ -125,14 +126,8 @@ templatesRoute.get('/', async (c) => {
 })
 
 templatesRoute.get('/:templateKey', async (c) => {
-  const projectId = c.req.param('projectId')
+  const projectId = c.req.param('projectId')!
   const templateKey = normalizeTemplateKey(c.req.param('templateKey') ?? '')
-  if (!projectId || !ObjectId.isValid(projectId)) {
-    return c.json({ error: 'Invalid projectId' }, 400)
-  }
-  if (!(await hasProjectAccess(c.get('user'), projectId))) {
-    return c.json({ error: 'You do not have access to this project' }, 403)
-  }
 
   const db = getDb()
   const template = await db.collection<Template>('templates').findOne({
@@ -148,13 +143,10 @@ templatesRoute.get('/:templateKey', async (c) => {
 })
 
 templatesRoute.patch('/:templateKey/:channel', async (c) => {
-  const projectId = c.req.param('projectId')
+  const projectId = c.req.param('projectId')!
   const templateKey = normalizeTemplateKey(c.req.param('templateKey') ?? '')
   const channel = c.req.param('channel')
 
-  if (!projectId || !ObjectId.isValid(projectId)) {
-    return c.json({ error: 'Invalid projectId' }, 400)
-  }
   if (channel !== 'email' && channel !== 'sms' && channel !== 'push') {
     return c.json({ error: 'channel must be one of: email, sms, push' }, 400)
   }
@@ -216,14 +208,8 @@ templatesRoute.patch('/:templateKey/:channel', async (c) => {
 // is immutable), but the cascade means a category can never end up pointing at
 // a template that no longer exists.
 templatesRoute.delete('/:templateKey', async (c) => {
-  const projectId = c.req.param('projectId')
+  const projectId = c.req.param('projectId')!
   const templateKey = normalizeTemplateKey(c.req.param('templateKey') ?? '')
-  if (!projectId || !ObjectId.isValid(projectId)) {
-    return c.json({ error: 'Invalid projectId' }, 400)
-  }
-  if (!(await hasProjectAccess(c.get('user'), projectId))) {
-    return c.json({ error: 'You do not have access to this project' }, 403)
-  }
 
   const db = getDb()
   const template = await db.collection<Template>('templates').findOne({

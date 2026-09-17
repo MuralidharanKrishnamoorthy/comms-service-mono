@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { passwordSchema, changePasswordSchema } from './user.js'
+import { passwordSchema, changePasswordSchema } from '../src/models/user.js'
 
 test('passwordSchema rejects a password shorter than 8 characters', () => {
   const result = passwordSchema.safeParse('ab12')

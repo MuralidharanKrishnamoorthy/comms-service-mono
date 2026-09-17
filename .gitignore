@@ -5,3 +5,6 @@ demo-consumer-app/.env
 .env.*
 !.env.example
 backend/uploads/
+
+SECURITY-AUDIT.md
+.claude/

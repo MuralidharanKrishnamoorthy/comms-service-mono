@@ -12,11 +12,7 @@ import { enabledChannels, formatDate, returnTarget } from '../util'
 const CHANNEL_LABELS: Record<Channel, string> = { email: 'Email', sms: 'SMS', push: 'Push' }
 
 export function TemplateEdit({ templateKey }: { path?: string; templateKey?: string }) {
-  const { selectedProject } = useStore()
-  const { user } = useAuth()
-  // Admins see status in the Templates list, so the detail-page status banners
-  // are for the author (Developer/BA/Tester) only.
-  const isAdmin = user?.role === 'admin'
+  const { selectedProject, projectsLoading } = useStore()
 
   const back = returnTarget(window.location.search, {
     href: '/templates',
@@ -78,10 +74,14 @@ export function TemplateEdit({ templateKey }: { path?: string; templateKey?: str
 
   const channelKeys = useMemo(() => (template ? enabledChannels(template.channels) : []), [template])
 
-  // A rejected template is a dead end: the backend refuses any content edit
-  // (409), so the editor and Save are locked here to match. "returned" stays
-  // fully editable — saving it resubmits for approval.
-  const locked = template?.status === 'rejected'
+  if (projectsLoading) {
+    return (
+      <div>
+        <PageHeader title="Template" />
+        <div class="card">Loading…</div>
+      </div>
+    )
+  }
 
   if (!selectedProject) {
     return (

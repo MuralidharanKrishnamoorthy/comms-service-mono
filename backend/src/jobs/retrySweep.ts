@@ -1,6 +1,7 @@
 import { getDb } from '../db.js'
 import { dispatchSend } from '../lib/dispatch.js'
 import { markSent, markFailedAndScheduleRetry } from '../lib/messageLog.js'
+import { isRetryable } from '../providers/httpProvider.js'
 import type { MessageLog } from '../models/messageLog.js'
 import type { Template } from '../models/template.js'
 
@@ -45,6 +46,6 @@ async function retryOne(log: MessageLog) {
     await markSent(log._id!, providerMessageId)
   } catch (err) {
     console.error(`Retry failed for message_log ${log._id}:`, err)
-    await markFailedAndScheduleRetry(log._id!, log.attempts)
+    await markFailedAndScheduleRetry(log._id!, log.attempts, isRetryable(err))
   }
 }
