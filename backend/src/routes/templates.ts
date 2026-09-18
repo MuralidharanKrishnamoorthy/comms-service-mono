@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import { z } from 'zod'
 import { ObjectId, MongoServerError } from 'mongodb'
 import { getDb } from '../db.js'
 import {
@@ -10,9 +11,12 @@ import {
   type ChannelContent,
   type TemplateStatusFilter,
 } from '../models/template.js'
+import type { Project } from '../models/project.js'
 import type { AuthEnv } from '../middleware/dashboardAuth.js'
 import { hasProjectAccess } from '../lib/access.js'
 import { parsePageParams, paginationMeta, skipFor } from '../lib/pagination.js'
+import { validateVariables, MissingVariablesError } from '../lib/template.js'
+import { dispatchSend } from '../lib/dispatch.js'
 import {
   autoApprovedReviewFields,
   initialReviewFields,
@@ -229,6 +233,61 @@ templatesRoute.patch('/:templateKey/:channel', async (c) => {
     channels: { ...template.channels, [channel]: updatedChannel },
     ...(reviewReset ?? {}),
   })
+})
+
+const testSendSchema = z.object({
+  recipient: z.string().min(1),
+  data: z.record(z.string(), z.unknown()).default({}),
+})
+
+templatesRoute.post('/:templateKey/:channel/test-send', async (c) => {
+  const projectId = c.req.param('projectId')!
+  const templateKey = normalizeTemplateKey(c.req.param('templateKey') ?? '')
+  const channel = c.req.param('channel')
+
+  if (channel !== 'email' && channel !== 'sms' && channel !== 'push') {
+    return c.json({ error: 'channel must be one of: email, sms, push' }, 400)
+  }
+
+  const body = await c.req.json().catch(() => null)
+  const parsed = testSendSchema.safeParse(body)
+  if (!parsed.success) {
+    return c.json({ error: 'Invalid input', details: parsed.error.flatten() }, 400)
+  }
+
+  const db = getDb()
+  const project = await db.collection<Project>('projects').findOne({ _id: new ObjectId(projectId) })
+  if (!project) return c.json({ error: 'Project not found' }, 404)
+  if (!project.channels_allowed.includes(channel)) {
+    return c.json({ error: `Project is not permitted to use channel "${channel}"` }, 403)
+  }
+
+  const template = await db.collection<Template>('templates').findOne({
+    project_id: new ObjectId(projectId),
+    template_key: templateKey,
+  })
+  if (!template) return c.json({ error: 'Template not found' }, 404)
+
+  const content = template.pending_channels?.[channel] ?? template.channels[channel]
+  if (!content) {
+    return c.json({ error: `Template "${templateKey}" has no "${channel}" content configured` }, 400)
+  }
+
+  try {
+    validateVariables(content.variables, parsed.data.data)
+  } catch (err) {
+    if (err instanceof MissingVariablesError) {
+      return c.json({ error: err.message, missing: err.missing }, 422)
+    }
+    throw err
+  }
+
+  try {
+    await dispatchSend(channel, content, parsed.data.recipient, parsed.data.data)
+    return c.json({ status: 'sent' })
+  } catch (err) {
+    return c.json({ error: err instanceof Error ? err.message : 'Send failed' }, 502)
+  }
 })
 
 // Delete a template. Cascades: pulls it out of every category's `templates`

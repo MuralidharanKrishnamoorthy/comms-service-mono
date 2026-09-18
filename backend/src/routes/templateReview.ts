@@ -57,10 +57,18 @@ templateReviewRoute.get('/', async (c) => {
   const col = db.collection<Template>('templates')
   const totalItems = await col.countDocuments(filter)
   const data = await col
-    .find(filter)
-    .sort({ updated_at: -1 })
-    .skip(skipFor(page, limit))
-    .limit(limit)
+    .aggregate<Template>([
+      { $match: filter },
+      {
+        $addFields: {
+          _needsReview: { $or: [{ $eq: ['$status', 'pending'] }, { $ifNull: ['$pending_channels', false] }] },
+        },
+      },
+      { $sort: { _needsReview: -1, updated_at: -1 } },
+      { $skip: skipFor(page, limit) },
+      { $limit: limit },
+      { $unset: '_needsReview' },
+    ])
     .toArray()
 
   return c.json({ data, pagination: paginationMeta(page, limit, totalItems) })

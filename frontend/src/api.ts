@@ -280,6 +280,17 @@ export const updateChannel = (
     method: 'PATCH',
     body: JSON.stringify(body),
   })
+export const testSendChannel = (
+  projectId: string,
+  templateKey: string,
+  channel: string,
+  recipient: string,
+  data: Record<string, string>
+) =>
+  request<{ status: 'sent' }>(`/projects/${projectId}/templates/${templateKey}/${channel}/test-send`, {
+    method: 'POST',
+    body: JSON.stringify({ recipient, data }),
+  })
 
 // ---------- Categories (global — not scoped to a project) ----------
 export const listCategories = () => request<Category[]>('/categories')

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'preact/hooks'
 import { route } from 'preact-router'
 import { useStore } from '../store'
 import { useAuth } from '../auth'
-import { ApiError, API_BASE, getTemplate, updateChannel } from '../api'
+import { ApiError, API_BASE, getTemplate, testSendChannel, updateChannel } from '../api'
 import type { Channel, Template } from '../types'
 import { ChannelFields, variablesFor, type ChannelValues } from '../components/ChannelFields'
 import { TemplatePreview } from '../components/TemplatePreview'
@@ -39,6 +39,30 @@ export function TemplateEdit({ templateKey }: { path?: string; templateKey?: str
 
   const setSample = (ch: Channel) => (name: string, value: string) =>
     setSampleValues((s) => ({ ...s, [ch]: { ...(s[ch] ?? {}), [name]: value } }))
+
+  const [testRecipient, setTestRecipient] = useState('')
+  const [testSending, setTestSending] = useState(false)
+  const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null)
+
+  const runTestSend = async () => {
+    if (!selectedProject || !template || !activeTab || !testRecipient.trim()) return
+    setTestSending(true)
+    setTestResult(null)
+    try {
+      await testSendChannel(
+        selectedProject._id,
+        template.template_key,
+        activeTab,
+        testRecipient.trim(),
+        sampleValues[activeTab] ?? {}
+      )
+      setTestResult({ ok: true, message: `Test sent to ${testRecipient.trim()}.` })
+    } catch (err) {
+      setTestResult({ ok: false, message: err instanceof Error ? err.message : 'Test send failed.' })
+    } finally {
+      setTestSending(false)
+    }
+  }
 
   const contentFrom = (t: Template): Partial<Record<Channel, ChannelValues>> => {
     const source = t.pending_channels ?? t.channels
@@ -356,6 +380,46 @@ export function TemplateEdit({ templateKey }: { path?: string; templateKey?: str
                   values={content[activeTab] ?? {}}
                   sampleValues={sampleValues[activeTab] ?? {}}
                 />
+              )}
+
+              {activeTab && (
+                <div class="card" style={{ marginTop: 16 }}>
+                  <CardHead
+                    title="Send test"
+                    hint="Sends this content for real, right now — to check it before anyone relies on it. Uses the sample values above."
+                  />
+                  <div class="field" style={{ marginBottom: 0 }}>
+                    <div class="ff">
+                      <input
+                        type="text"
+                        id="test-recipient"
+                        value={testRecipient}
+                        placeholder=" "
+                        onInput={(e) => {
+                          setTestRecipient((e.target as HTMLInputElement).value)
+                          setTestResult(null)
+                        }}
+                      />
+                      <label for="test-recipient">
+                        {activeTab === 'email' ? 'Recipient email' : 'Recipient number'}
+                      </label>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    class="btn btn-sm"
+                    style={{ marginTop: 10 }}
+                    disabled={testSending || !testRecipient.trim()}
+                    onClick={runTestSend}
+                  >
+                    {testSending ? 'Sending…' : 'Send test'}
+                  </button>
+                  {testResult && (
+                    <div class={testResult.ok ? 'note' : 'banner-error'} style={{ marginTop: 10 }}>
+                      {testResult.message}
+                    </div>
+                  )}
+                </div>
               )}
             </aside>
           </div>
