@@ -41,9 +41,10 @@ export function TemplateEdit({ templateKey }: { path?: string; templateKey?: str
     setSampleValues((s) => ({ ...s, [ch]: { ...(s[ch] ?? {}), [name]: value } }))
 
   const contentFrom = (t: Template): Partial<Record<Channel, ChannelValues>> => {
+    const source = t.pending_channels ?? t.channels
     const next: Partial<Record<Channel, ChannelValues>> = {}
     for (const ch of enabledChannels(t.channels)) {
-      const c = t.channels[ch]!
+      const c = source[ch] ?? t.channels[ch]!
       next[ch] = { subject: c.subject, html_body: c.html_body, title: c.title, body: c.body }
     }
     return next
@@ -82,7 +83,7 @@ export function TemplateEdit({ templateKey }: { path?: string; templateKey?: str
   const locked = template?.status === 'rejected'
 
   const dirtyChannels = channelKeys.filter((ch) => {
-    const saved = template?.channels[ch]
+    const saved = template && (template.pending_channels?.[ch] ?? template.channels[ch])
     const current = content[ch]
     if (!saved || !current) return false
     return (
@@ -238,6 +239,15 @@ export function TemplateEdit({ templateKey }: { path?: string; templateKey?: str
         </div>
       )}
 
+      {template?.pending_channels && (
+        <div class="template-pending-banner" role="status">
+          <span class="template-pending-dot" aria-hidden="true" />
+          <span class="template-rejected-text">
+            You have an edit awaiting approval. The previous version keeps sending until it's approved.
+          </span>
+        </div>
+      )}
+
       <BackLink href={back.href} label={back.label} onClick={() => route(back.href)} />
 
       {loadError === 'network' && <ApiBanner base={API_BASE} />}
@@ -267,18 +277,6 @@ export function TemplateEdit({ templateKey }: { path?: string; templateKey?: str
                   : `Unsaved changes in ${dirtyChannels.map((ch) => CHANNEL_LABELS[ch]).join(', ')}`}
               </p>
             </div>
-            {!locked && (
-              <div class="page-actions">
-                <button
-                  type="button"
-                  class="btn btn-primary"
-                  disabled={saving || dirtyChannels.length === 0}
-                  onClick={save}
-                >
-                  {saving ? 'Saving…' : 'Save changes'}
-                </button>
-              </div>
-            )}
           </div>
 
           <div class="tpl-grid">
@@ -361,6 +359,19 @@ export function TemplateEdit({ templateKey }: { path?: string; templateKey?: str
               )}
             </aside>
           </div>
+
+          {!locked && (
+            <div class="form-actions">
+              <button
+                type="button"
+                class="btn btn-primary"
+                disabled={saving || dirtyChannels.length === 0}
+                onClick={save}
+              >
+                {saving ? 'Saving…' : 'Save changes'}
+              </button>
+            </div>
+          )}
         </>
       )}
 

@@ -63,20 +63,34 @@ templateReviewRoute.get('/', async (c) => {
   return c.json({ data, pagination: paginationMeta(page, limit, totalItems) })
 })
 
+async function discardPendingEdit(id: string) {
+  return getDb()
+    .collection<Template>('templates')
+    .findOneAndUpdate(
+      { _id: new ObjectId(id) },
+      { $set: { updated_at: new Date() }, $unset: { pending_channels: '' } },
+      { returnDocument: 'after' }
+    )
+}
+
 // PATCH /templates/:id/approve  (admin only)
 templateReviewRoute.patch('/:id/approve', requireAdmin, async (c) => {
   const id = c.req.param('id')
   if (!ObjectId.isValid(id)) return c.json({ error: 'Invalid template id' }, 400)
 
+  const col = getDb().collection<Template>('templates')
+  const template = await col.findOne({ _id: new ObjectId(id) })
+  if (!template) return c.json({ error: 'Template not found' }, 404)
+
   const now = new Date()
   const fields = approvalFields(c.get('user')._id, now)
-  const result = await getDb()
-    .collection<Template>('templates')
-    .findOneAndUpdate(
-      { _id: new ObjectId(id) },
-      { $set: { ...fields, updated_at: now } },
-      { returnDocument: 'after' }
-    )
+  const channels = template.pending_channels ?? template.channels
+
+  const result = await col.findOneAndUpdate(
+    { _id: new ObjectId(id) },
+    { $set: { ...fields, channels, updated_at: now }, $unset: { pending_channels: '' } },
+    { returnDocument: 'after' }
+  )
 
   if (!result) return c.json({ error: 'Template not found' }, 404)
   return c.json(result)
@@ -87,6 +101,14 @@ templateReviewRoute.patch('/:id/reject', requireAdmin, async (c) => {
   const id = c.req.param('id')
   if (!ObjectId.isValid(id)) return c.json({ error: 'Invalid template id' }, 400)
 
+  const col = getDb().collection<Template>('templates')
+  const template = await col.findOne({ _id: new ObjectId(id) })
+  if (!template) return c.json({ error: 'Template not found' }, 404)
+
+  if (template.status === 'approved' && template.pending_channels) {
+    return c.json(await discardPendingEdit(id))
+  }
+
   const body = await c.req.json().catch(() => ({}))
   const parsed = rejectTemplateSchema.safeParse(body ?? {})
   if (!parsed.success) {
@@ -95,13 +117,11 @@ templateReviewRoute.patch('/:id/reject', requireAdmin, async (c) => {
 
   const now = new Date()
   const fields = rejectionFields(c.get('user')._id, parsed.data.reason, now)
-  const result = await getDb()
-    .collection<Template>('templates')
-    .findOneAndUpdate(
-      { _id: new ObjectId(id) },
-      { $set: { ...fields, updated_at: now } },
-      { returnDocument: 'after' }
-    )
+  const result = await col.findOneAndUpdate(
+    { _id: new ObjectId(id) },
+    { $set: { ...fields, updated_at: now } },
+    { returnDocument: 'after' }
+  )
 
   if (!result) return c.json({ error: 'Template not found' }, 404)
   return c.json(result)
@@ -113,6 +133,14 @@ templateReviewRoute.patch('/:id/return', requireAdmin, async (c) => {
   const id = c.req.param('id')
   if (!ObjectId.isValid(id)) return c.json({ error: 'Invalid template id' }, 400)
 
+  const col = getDb().collection<Template>('templates')
+  const template = await col.findOne({ _id: new ObjectId(id) })
+  if (!template) return c.json({ error: 'Template not found' }, 404)
+
+  if (template.status === 'approved' && template.pending_channels) {
+    return c.json(await discardPendingEdit(id))
+  }
+
   const body = await c.req.json().catch(() => ({}))
   const parsed = returnTemplateSchema.safeParse(body ?? {})
   if (!parsed.success) {
@@ -121,13 +149,11 @@ templateReviewRoute.patch('/:id/return', requireAdmin, async (c) => {
 
   const now = new Date()
   const fields = returnFields(c.get('user')._id, parsed.data.remarks, now)
-  const result = await getDb()
-    .collection<Template>('templates')
-    .findOneAndUpdate(
-      { _id: new ObjectId(id) },
-      { $set: { ...fields, updated_at: now } },
-      { returnDocument: 'after' }
-    )
+  const result = await col.findOneAndUpdate(
+    { _id: new ObjectId(id) },
+    { $set: { ...fields, updated_at: now } },
+    { returnDocument: 'after' }
+  )
 
   if (!result) return c.json({ error: 'Template not found' }, 404)
   return c.json(result)

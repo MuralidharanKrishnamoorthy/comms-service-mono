@@ -40,6 +40,19 @@ function withVersionAndLive(content: Omit<ChannelContent, 'version' | 'live'>): 
   return { ...content, version: 1, live: true }
 }
 
+function nextChannelContent(
+  existing: ChannelContent | undefined,
+  patch: Partial<Omit<ChannelContent, 'version' | 'live'>>
+): ChannelContent {
+  return {
+    ...existing,
+    ...patch,
+    variables: patch.variables ?? existing?.variables ?? [],
+    version: (existing?.version ?? 0) + 1,
+    live: true,
+  }
+}
+
 templatesRoute.post('/', async (c) => {
   const projectId = c.req.param('projectId')!
 
@@ -162,8 +175,8 @@ templatesRoute.patch('/:templateKey/:channel', async (c) => {
     return c.json({ error: 'Invalid input', details: parsed.error.flatten() }, 400)
   }
 
-  const db = getDb()
-  const template = await db.collection<Template>('templates').findOne({
+  const col = getDb().collection<Template>('templates')
+  const template = await col.findOne({
     project_id: new ObjectId(projectId),
     template_key: templateKey,
   })
@@ -181,23 +194,34 @@ templatesRoute.patch('/:templateKey/:channel', async (c) => {
     )
   }
 
-  const existingChannel = template.channels[channel]
-  const updatedChannel: ChannelContent = {
-    ...existingChannel,
-    ...parsed.data,
-    variables: parsed.data.variables ?? existingChannel?.variables ?? [],
-    version: (existingChannel?.version ?? 0) + 1,
-    live: true,
+  const now = new Date()
+
+  // An approved template is already live — its content must not change under
+  // it, so the edit is staged in `pending_channels` instead of `channels`.
+  // Only approving or rejecting the edit (routes/templateReview.ts) touches
+  // `channels` from here on.
+  if (template.status === 'approved') {
+    const base = template.pending_channels ?? template.channels
+    const pendingChannels = { ...base, [channel]: nextChannelContent(base[channel], parsed.data) }
+
+    await col.updateOne(
+      { project_id: new ObjectId(projectId), template_key: templateKey },
+      { $set: { pending_channels: pendingChannels, updated_at: now } }
+    )
+
+    return c.json({ ...template, pending_channels: pendingChannels, updated_at: now })
   }
 
-  // Any content change invalidates a prior review: an approved or rejected
-  // template drops back to "pending" and its audit fields clear. Already-pending
-  // templates are left as they are (resetReviewForEdit returns null).
+  const updatedChannel = nextChannelContent(template.channels[channel], parsed.data)
+
+  // Any content change invalidates a prior review: a returned template drops
+  // back to "pending" and its audit fields clear. An already-pending template
+  // is left as it is (resetReviewForEdit returns null).
   const reviewReset = resetReviewForEdit(template.status)
 
-  await db.collection<Template>('templates').updateOne(
+  await col.updateOne(
     { project_id: new ObjectId(projectId), template_key: templateKey },
-    { $set: { [`channels.${channel}`]: updatedChannel, updated_at: new Date(), ...(reviewReset ?? {}) } }
+    { $set: { [`channels.${channel}`]: updatedChannel, updated_at: now, ...(reviewReset ?? {}) } }
   )
 
   return c.json({

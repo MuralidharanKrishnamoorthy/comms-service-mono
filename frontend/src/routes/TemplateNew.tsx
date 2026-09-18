@@ -318,16 +318,6 @@ export function TemplateNew(_props: { path?: string }) {
         <div>
           <h1 class="page-title">New template</h1>
         </div>
-        <div class="page-actions">
-          <button
-            type="submit"
-            form="template-form"
-            class="btn btn-primary"
-            disabled={submitting}
-          >
-            {submitting ? 'Creating…' : 'Create template'}
-          </button>
-        </div>
       </div>
 
       {banner && <div class="banner-error">{banner}</div>}
@@ -462,6 +452,12 @@ export function TemplateNew(_props: { path?: string }) {
               disabled={!enabled[activeTab]}
             />
           </aside>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary" disabled={submitting}>
+            {submitting ? 'Creating…' : 'Create template'}
+          </button>
         </div>
       </form>
 

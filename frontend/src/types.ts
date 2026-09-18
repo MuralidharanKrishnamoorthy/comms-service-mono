@@ -57,6 +57,7 @@ export interface Template {
   template_key: string
   name: string
   channels: Partial<Record<Channel, ChannelContent>>
+  pending_channels?: Partial<Record<Channel, ChannelContent>> | null
   status: TemplateStatus
   created_by: string | null
   reviewed_by: string | null

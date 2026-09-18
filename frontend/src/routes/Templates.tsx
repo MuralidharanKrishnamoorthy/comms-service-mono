@@ -219,7 +219,8 @@ export function Templates(_props: { path?: string }) {
             ) : (
               visible.map((t) => {
                 const busy = actioningId === t._id
-                const canReview = isAdmin && t.status === 'pending'
+                const hasPendingEdit = !!t.pending_channels
+                const canReview = isAdmin && (t.status === 'pending' || hasPendingEdit)
                 return (
                   <Fragment key={t._id}>
                     <tr
@@ -241,7 +242,9 @@ export function Templates(_props: { path?: string }) {
                         <StatusBadge
                           status={t.status}
                           label={
-                            t.status === 'returned'
+                            hasPendingEdit
+                              ? 'Live · edit pending'
+                              : t.status === 'returned'
                               ? 'Returned for edits'
                               : // A non-admin sees "pending approval" — it's awaiting an
                                 // admin. The admin's own queue keeps the terse "pending".

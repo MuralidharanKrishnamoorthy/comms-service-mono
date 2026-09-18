@@ -94,6 +94,12 @@ export interface Template {
     push?: ChannelContent
   }
 
+  pending_channels?: {
+    email?: ChannelContent
+    sms?: ChannelContent
+    push?: ChannelContent
+  } | null
+
   // Approval workflow. `status` gates whether the template may actually be used
   // (only "approved" templates can be sent — see routes/send.ts). The review
   // fields form an audit trail: who reviewed it, when, and — for a rejection or
