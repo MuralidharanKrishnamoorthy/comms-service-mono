@@ -1,8 +1,9 @@
 import type { ComponentChildren } from 'preact'
-import { useState } from 'preact/hooks'
+import { useEffect, useState } from 'preact/hooks'
 import { Router, route, getCurrentUrl } from 'preact-router'
 import { StoreProvider } from './store'
 import { useAuth } from './auth'
+import { countTemplatesNeedingReview } from './api'
 import { Login } from './routes/Login'
 import { Projects } from './routes/Projects'
 import { ProjectDetail } from './routes/ProjectDetail'
@@ -69,8 +70,34 @@ const ICONS = {
   users: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 0 .01M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
 }
 
+// Admin-only: how many templates need a decision right now — a brand-new
+// submission or an edit on a live one. Fetched on login, and again on every
+// navigation into or out of Templates, since acting on one happens there.
+function useReviewCount(isAdmin: boolean, path: string): number {
+  const [count, setCount] = useState(0)
+  const onTemplatesPage = path.startsWith('/templates')
+
+  useEffect(() => {
+    if (!isAdmin) return
+    let cancelled = false
+    countTemplatesNeedingReview()
+      .then((n) => {
+        if (!cancelled) setCount(n)
+      })
+      .catch(() => {
+        /* the badge just stays at its last known count */
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [isAdmin, onTemplatesPage])
+
+  return count
+}
+
 function Sidebar({ path }: { path: string }) {
   const { user } = useAuth()
+  const reviewCount = useReviewCount(user?.role === 'admin', path)
   return (
     <aside class="sidebar">
       <div class="brand">
@@ -84,6 +111,7 @@ function Sidebar({ path }: { path: string }) {
         <NavLink href="/templates" path={path}>
           <NavIcon d={ICONS.templates} />
           Templates
+          {reviewCount > 0 && <span class="nav-badge">{reviewCount}</span>}
         </NavLink>
         <NavLink href="/categories" path={path}>
           <NavIcon d={ICONS.categories} />

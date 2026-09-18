@@ -218,6 +218,14 @@ export const listTemplatesList = (
     },
   })
 
+// How many templates need an admin's attention right now — a brand-new
+// submission or an edit awaiting approval on a live one. Just the count, so
+// the sidebar badge costs one small page fetch, not the full list.
+export const countTemplatesNeedingReview = () =>
+  request<Paginated<Template>>('/templates', { query: { needs_review: 'true', limit: '1' } }).then(
+    (res) => res.pagination.totalItems
+  )
+
 // The full template list for a project, paged through behind the scenes — for
 // callers that genuinely need every row (e.g. the category template picker),
 // not a single page. The list endpoint itself stays capped at 10 per page.

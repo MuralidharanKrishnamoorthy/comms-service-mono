@@ -30,6 +30,7 @@ templateReviewRoute.get('/', async (c) => {
   const { page, limit } = parsePageParams(c.req.query('page'), c.req.query('limit'))
   const projectParam = c.req.query('project')
   const statusRaw = c.req.query('status')
+  const needsReview = c.req.query('needs_review') === 'true'
 
   const filter: Record<string, unknown> = {}
 
@@ -44,7 +45,9 @@ templateReviewRoute.get('/', async (c) => {
     filter.project_id = { $in: allowed }
   }
 
-  if (statusRaw && statusRaw !== 'all') {
+  if (needsReview) {
+    filter.$or = [{ status: 'pending' }, { pending_channels: { $exists: true } }]
+  } else if (statusRaw && statusRaw !== 'all') {
     if (!TEMPLATE_STATUS_FILTERS.includes(statusRaw as TemplateStatusFilter)) {
       return c.json({ error: `status must be one of: ${TEMPLATE_STATUS_FILTERS.join(', ')}` }, 400)
     }
